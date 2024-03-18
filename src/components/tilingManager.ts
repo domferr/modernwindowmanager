@@ -12,6 +12,7 @@ import SignalHandling from '@/signalHandling';
 import { Layout } from './layout/Layout';
 import Tile from './layout/Tile';
 import TileUtils from './layout/TileUtils';
+import GlobalState from '@/globalState';
 
 const SIGNAL_GRAB_OP_BEGIN = 'grab-op-begin';
 const SIGNAL_GRAB_OP_END = 'grab-op-end';
@@ -52,7 +53,7 @@ export class TilingManager {
         this._monitor = monitor;
         this._signals = new SignalHandling();
         this._debug = logger(`TilingManager ${monitor.index}`);
-        const layout: Layout = Settings.get_layouts()[Settings.get_selected_layouts()[monitor.index]];
+        const layout: Layout = GlobalState.get().layouts[Settings.get_selected_layouts()[monitor.index]];
 
         // handle scale factor of the monitor
         this._scaleFactor = ThemeContext.get_for_stage(global.get_stage()).get_scale_factor();
@@ -84,7 +85,11 @@ export class TilingManager {
      */
     public enable() {
         this._signals.connect(Settings, Settings.SETTING_SELECTED_LAYOUTS, () => {
-            const layout: Layout = Settings.get_layouts()[Settings.get_selected_layouts()[this._monitor.index]];
+            const layout: Layout = GlobalState.get().layouts[Settings.get_selected_layouts()[this._monitor.index]];
+            this._tilingLayout.relayout({ layout });
+        });
+        this._signals.connect(GlobalState.get(), GlobalState.SIGNAL_LAYOUTS_CHANGED, () => {
+            const layout: Layout = GlobalState.get().layouts[Settings.get_selected_layouts()[this._monitor.index]];
             this._tilingLayout.relayout({ layout });
         });
         

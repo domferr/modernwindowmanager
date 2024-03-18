@@ -18,9 +18,7 @@ export class SnapAssistLayout extends LayoutWidget<SnapAssistTile> {
     constructor(parent: Actor | null, layout: Layout, gaps: Margin, scaleFactor: number) {
         const rect = new Rectangle({height: SnapAssistLayout._snapAssistHeight * scaleFactor, width: SnapAssistLayout._snapAssistWidth * scaleFactor, x: 0, y: 0});
         gaps = new Margin({top: gaps.top * scaleFactor, bottom: gaps.bottom * scaleFactor, left: gaps.left * scaleFactor, right: gaps.right * scaleFactor});
-        const outerMargin = Math.min(gaps.top, Math.min(gaps.bottom, Math.min(gaps.left, gaps.right))) * scaleFactor;
-        super(parent, layout, gaps, new Margin({top: outerMargin, bottom: outerMargin, left: outerMargin, right: outerMargin }), rect, "snap-assist-layout");
-        this.ensure_style();
+        super(parent, layout, gaps, new Margin(), rect, "snap-assist-layout");
     }
 
     buildTile(parent: Actor, rect: Rectangle, gaps: Margin, tile: Tile): SnapAssistTile {

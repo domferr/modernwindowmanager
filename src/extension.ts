@@ -10,6 +10,7 @@ import { SettingsBindFlags } from '@gi-types/gio2';
 import Settings from '@/settings';
 import SignalHandling from './signalHandling';
 import { Layout } from './components/layout/Layout';
+import GlobalState from './globalState';
 
 const SIGNAL_WORKAREAS_CHANGED = 'workareas-changed';
 const debug = logger('extension');
@@ -91,6 +92,7 @@ class Extension {
     this._tilingManagers.forEach(tm => tm.destroy());
     this._tilingManagers = [];
     this._signals.disconnect();
+    GlobalState.destroy();
     debug('extension is disabled');
   }
 }

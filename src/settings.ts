@@ -13,7 +13,7 @@ export default class Settings {
     static SETTING_INNER_GAPS = 'inner-gaps';
     static SETTING_OUTER_GAPS = 'outer-gaps';
     static SETTING_SPAN_MULTIPLE_TILES = 'enable-span-multiple-tiles';
-    static SETTING_LAYOUTS = 'layouts-json';
+    static SETTING_LAYOUTS_JSON = 'layouts-json';
     static SETTING_SELECTED_LAYOUTS = 'selected-layouts';
     
     static initialize() {
@@ -65,9 +65,9 @@ export default class Settings {
         return this._settings.get_boolean(this.SETTING_SPAN_MULTIPLE_TILES);
     }
 
-    static get_layouts() : Layout[] {
+    static get_layouts_json() : Layout[] {
         try {
-            const layouts = JSON.parse(this._settings.get_string(this.SETTING_LAYOUTS)) as Layout[];
+            const layouts = JSON.parse(this._settings.get_string(this.SETTING_LAYOUTS_JSON)) as Layout[];
             if (layouts.length === 0) throw "At least one layout is required";
             return layouts.filter(layout => layout.tiles.length > 0);
         } catch(ex: any) {
@@ -93,9 +93,13 @@ export default class Settings {
                     new Tile({ x:0, y:0, height: 1, width: 0.33 }),
                 ]),
             ];
-            this._settings.set_string(this.SETTING_LAYOUTS, JSON.stringify(defaultLayouts));
+            this.save_layouts_json(defaultLayouts);
             return defaultLayouts;
         }
+    }
+
+    static save_layouts_json(layouts: Layout[]) {
+        this._settings.set_string(this.SETTING_LAYOUTS_JSON, JSON.stringify(layouts));
     }
 
     static get_selected_layouts() : number[] {

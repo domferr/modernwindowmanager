@@ -40,7 +40,7 @@ export class LayoutWidget<TileType extends TilePreview> extends Widget {
     }
 
     protected buildTile(parent: Actor, rect: Rectangle, margin: Margin, tile: Tile): TileType {
-        throw("This class shouldn't be instantiated but be extended instead");
+        throw("This class shouldn't be instantiated but it should be extended instead");
     }
 
     public relayout(params?: Partial<{

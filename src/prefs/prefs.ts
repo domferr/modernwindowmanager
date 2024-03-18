@@ -66,8 +66,8 @@ function fillPreferencesWindow(window: Adw.PreferencesWindow) {
     );
     appearenceGroup.add(showIndicatorRow);
 
-    Settings.connect(Settings.SETTING_LAYOUTS, () => {
-        debug(`changed ${Settings.SETTING_LAYOUTS} to ${JSON.stringify(Settings.get_layouts())}`)
+    Settings.connect(Settings.SETTING_LAYOUTS_JSON, () => {
+        debug(`changed ${Settings.SETTING_LAYOUTS_JSON} to ${JSON.stringify(Settings.get_layouts_json())}`)
     })
 
     const innerGapsRow = buildSpinButtonRow(

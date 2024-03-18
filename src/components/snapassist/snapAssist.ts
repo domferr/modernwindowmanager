@@ -66,7 +66,7 @@ export class SnapAssist extends BoxLayout {
             left: inner_gaps.left === 0 ? 0:this._gaps,
             right: inner_gaps.right === 0 ? 0:this._gaps,
         });
-        const layouts = Settings.get_layouts();
+        const layouts = Settings.get_layouts_json();
         // build the layouts inside the snap assistant. Place a spacer between each layout
         this._snapAssistLayouts = layouts.map((lay, ind) => {
             const saLay = new SnapAssistLayout(this, lay, layoutGaps, scaleFactor);

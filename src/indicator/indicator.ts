@@ -11,6 +11,8 @@ import Settings from '@/settings';
 import { Layout } from '@/components/layout/Layout';
 import Tile from '@/components/layout/Tile';
 import SignalHandling from '@/signalHandling';
+import { Global } from '@gi-types/shell0';
+import GlobalState from '@/globalState';
 
 const { PopupBaseMenuItem } = imports.ui.popupMenu;
 const { Button: PopupMenuButton } = imports.ui.panelMenu;
@@ -25,7 +27,7 @@ export class LayoutSelectionWidget extends LayoutWidget<SnapAssistTile> {
     constructor(layout: Layout, gapSize: number, scaleFactor: number) {
         const rect = new Rectangle({height: LayoutSelectionWidget._layoutHeight * scaleFactor, width: LayoutSelectionWidget._layoutWidth * scaleFactor, x: 0, y: 0});
         const gaps = new Margin({ top: gapSize * scaleFactor, bottom: gapSize * scaleFactor, left: gapSize * scaleFactor, right: gapSize * scaleFactor });
-        super(null, layout, gaps, gaps, rect, "snap-assist-layout");
+        super(null, layout, gaps, new Margin(), rect, "snap-assist-layout");
     }
 
     buildTile(parent: Actor, rect: Rectangle, gaps: Margin, tile: Tile): SnapAssistTile {
@@ -64,13 +66,13 @@ export class Indicator extends PopupMenuButton {
         this.menu.addMenuItem(layoutsPopupMenu);
 
         this._setLayouts(
-            Settings.get_layouts(), 
+            GlobalState.get().layouts, 
             Settings.get_selected_layouts()[imports.ui.main.layoutManager.primaryIndex]
         );
         // update the layouts shown by the indicator when they are modified
-        this._signals.connect(Settings, Settings.SETTING_LAYOUTS, () => {
+        this._signals.connect(Settings, Settings.SETTING_LAYOUTS_JSON, () => {
             this._setLayouts(
-                Settings.get_layouts(), 
+                GlobalState.get().layouts, 
                 Settings.get_selected_layouts()[imports.ui.main.layoutManager.primaryIndex]
             );
         });
@@ -94,6 +96,8 @@ export class Indicator extends PopupMenuButton {
             btn.child = new LayoutSelectionWidget(lay, hasGaps ? 1:0, scalingFactor);
             this.layoutsBoxLayout.add_child(btn);
             btn.connect('clicked', (self) => {
+                if (btn.checked) return;
+                
                 // change the layout of all the monitors
                 Settings.set_selected_layouts(getMonitors().map((monitor) => btnInd))
                 this.menu.toggle();
