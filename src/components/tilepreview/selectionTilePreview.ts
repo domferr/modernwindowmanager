@@ -10,6 +10,7 @@ const debug = logger("SelectionTilePreview");
 @registerGObjectClass
 export class SelectionTilePreview extends TilePreview {
   private _backgroundColor: Color | null = null;
+  private _styleChangedSignalID: number | null = null;
 
   constructor(params: {
     parent?: Actor,
@@ -18,7 +19,7 @@ export class SelectionTilePreview extends TilePreview {
   }) {
     super({tile: new Tile({x:0, y:0, width: 0, height: 0}), ...params});
     this._recolor();
-    this.connect("style-changed", () => {
+    this._styleChangedSignalID = this.connect("style-changed", () => {
       const { red, green, blue } = this.get_theme_node().get_background_color();
       
       if (this._backgroundColor?.red !== red || this._backgroundColor?.green !== green || this._backgroundColor?.blue !== blue) {
@@ -44,5 +45,11 @@ export class SelectionTilePreview extends TilePreview {
     this._rect.width = 0;
     this._rect.height = 0;
     super.close();
+  }
+
+  destroy() {
+    if (this._styleChangedSignalID) this.disconnect(this._styleChangedSignalID);
+    this._styleChangedSignalID = null;
+    super.destroy();
   }
 }

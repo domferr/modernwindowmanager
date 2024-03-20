@@ -14,9 +14,6 @@ import Tile from './layout/Tile';
 import TileUtils from './layout/TileUtils';
 import GlobalState from '@/globalState';
 
-const SIGNAL_GRAB_OP_BEGIN = 'grab-op-begin';
-const SIGNAL_GRAB_OP_END = 'grab-op-end';
-
 export class TilingManager {
     private readonly _monitor: Monitor;
 
@@ -44,10 +41,6 @@ export class TilingManager {
     /**
      * Constructs a new TilingManager instance.
      * @param monitor The monitor to manage tiling for.
-     * @param layouts Available tiling layouts.
-     * @param selectedLayout Index of the selected layout.
-     * @param innerMargin Inner margin for tiling.
-     * @param outerMargin Outer margin for tiling.
      */
     constructor(monitor: Monitor) {
         this._monitor = monitor;
@@ -102,15 +95,14 @@ export class TilingManager {
             this._tilingLayout.relayout({ outerMargin: this._outerGaps });
         });
 
-        this._signals.connect(global.display, SIGNAL_GRAB_OP_BEGIN, (_display: Display, window: Window, grabOp: GrabOp) => {
+        this._signals.connect(global.display, 'grab-op-begin', (_display: Display, window: Window, grabOp: GrabOp) => {
             if (grabOp != GrabOp.MOVING) return;
 
             this._onWindowGrabBegin(window);
         });
 
-        this._signals.connect(global.display, SIGNAL_GRAB_OP_END, (_display: Display, window: Window, grabOp: GrabOp) => {
-            if (grabOp != GrabOp.MOVING) return;
-            if (!window.allows_resize() || !window.allows_move()) return;
+        this._signals.connect(global.display, 'grab-op-end', (_display: Display, window: Window, grabOp: GrabOp) => {
+            if (!this._isGrabbingWindow) return;
 
             this._onWindowGrabEnd(window);
         });
@@ -149,6 +141,8 @@ export class TilingManager {
     }
 
     private _onWindowGrabBegin(window: Window) {
+        if (this._isGrabbingWindow) return;
+
         this._isGrabbingWindow = true;
         this._movingWindowTimerId = timeout_add(
             PRIORITY_DEFAULT_IDLE,
@@ -170,7 +164,7 @@ export class TilingManager {
         if (!window.allows_resize() || !window.allows_move() || !this._isPointerInsideThisMonitor()) {
             this._tilingLayout.close();
             this._selectedTilesPreview.close();
-            this._snapAssist.close();
+            this._snapAssist.close(true);
             this._isSnapAssisting = false;
             
             return SOURCE_CONTINUE;
@@ -214,7 +208,7 @@ export class TilingManager {
         if (!this._tilingLayout.showing) {
             //this._debug("open layout below grabbed window");
             this._tilingLayout.openAbove(window);
-            this._snapAssist.close();
+            this._snapAssist.close(true);
         }
         // if it was snap assisting then close the selection tile preview. We may reopen it if that's the case
         if (this._isSnapAssisting) {
@@ -257,7 +251,7 @@ export class TilingManager {
             height: this._selectedTilesPreview.innerHeight
         });
         this._selectedTilesPreview.close();
-        this._snapAssist.close();
+        this._snapAssist.close(true);
         this._lastCursorPos = null;
         
         const isCtrlPressed = (global.get_pointer()[2] & ModifierType.CONTROL_MASK);

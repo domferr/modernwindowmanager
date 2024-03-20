@@ -1,12 +1,12 @@
 import Gio from '@gi-types/gio2';
-import St, { Align } from '@gi-types/st1';
+import St from '@gi-types/st1';
 import { registerGObjectClass } from '@/utils/gjs';
 import { getCurrentExtension, logger } from '@/utils/shell';
 import { Actor, Margin, ActorAlign } from '@gi-types/clutter10';
 import { Rectangle } from '@gi-types/meta10';
 import { LayoutWidget } from '@/components/layout/LayoutWidget';
 import { SnapAssistTile } from '@/components/snapassist/snapAssistTile';
-import { Main, getMonitors } from '@/utils/ui';
+import { Main, getMonitors, getScalingFactor } from '@/utils/ui';
 import Settings from '@/settings';
 import { Layout } from '@/components/layout/Layout';
 import Tile from '@/components/layout/Tile';
@@ -21,7 +21,7 @@ const debug = logger('indicator');
 @registerGObjectClass
 export class LayoutSelectionWidget extends LayoutWidget<SnapAssistTile> {
     private static readonly _layoutHeight: number = 36;
-    private static readonly _layoutWidth: number = 64; // 16:9 ratio. -> (16*this._snapAssistHeight) / 9 and then rounded to int
+    private static readonly _layoutWidth: number = 64; // 16:9 ratio. -> (16*this._layoutHeight) / 9 and then rounded to int
 
     constructor(layout: Layout, gapSize: number, scaleFactor: number) {
         const rect = new Rectangle({height: LayoutSelectionWidget._layoutHeight * scaleFactor, width: LayoutSelectionWidget._layoutWidth * scaleFactor, x: 0, y: 0});
@@ -40,6 +40,7 @@ export class Indicator extends PopupMenuButton {
     private layoutsBoxLayout: St.BoxLayout;
     private layoutsButtons: St.Button[] = [];
     private readonly _signals: SignalHandling;
+    private _scalingFactor: number = 0;
 
     constructor() {
         super(0.5, 'Modern Window Manager Indicator', false);
@@ -50,7 +51,11 @@ export class Indicator extends PopupMenuButton {
         });
 
         this.add_child(this.icon);
-        
+
+        //@ts-ignore
+        let monitor = Main.layoutManager.findMonitorForActor(this);
+        this._scalingFactor = getScalingFactor(monitor?.index || Main.layoutManager.primaryIndex);
+
         this.layoutsBoxLayout = new St.BoxLayout({
             x_align: ActorAlign.CENTER,
             y_align: ActorAlign.CENTER,
@@ -58,12 +63,38 @@ export class Indicator extends PopupMenuButton {
             y_expand: true,
             vertical: false // horizontal box layout
         });
-
         const layoutsPopupMenu = new PopupBaseMenuItem({ style_class: 'popup-menu-layout-selection' });
         layoutsPopupMenu.add_actor(this.layoutsBoxLayout);
-
         this.menu.addMenuItem(layoutsPopupMenu);
 
+        this._drawLayouts();
+        // update the layouts shown by the indicator when they are modified
+        this._signals.connect(Settings, Settings.SETTING_LAYOUTS_JSON, () => {
+            this._drawLayouts();
+        });
+
+        const buttonsPopupMenu = this._buildEditingButtonsRow();
+        this.menu.addMenuItem(buttonsPopupMenu);
+
+        // if the selected layout was changed externaly, update the selected button
+        this._signals.connect(Settings, Settings.SETTING_SELECTED_LAYOUTS, () => {
+            const btnInd = Settings.get_selected_layouts()[imports.ui.main.layoutManager.primaryIndex];
+            if (this.layoutsButtons[btnInd].checked) return;
+            this.layoutsButtons.forEach((btn, layInd) => btn.set_checked(layInd === btnInd));
+        });
+
+        this._signals.connect(Main.layoutManager, 'monitors-changed', () => {
+            //@ts-ignore
+            let monitor = Main.layoutManager.findMonitorForActor(this);
+            const newScalingFactor = getScalingFactor(monitor?.index || Main.layoutManager.primaryIndex);
+            if (this._scalingFactor === newScalingFactor) return;
+
+            this._scalingFactor = newScalingFactor;
+            this._drawLayouts();
+        });
+    }
+
+    private _buildEditingButtonsRow() {
         const buttonsBoxLayout = new St.BoxLayout({
             x_align: ActorAlign.CENTER,
             y_align: ActorAlign.CENTER,
@@ -86,35 +117,16 @@ export class Indicator extends PopupMenuButton {
 
         const buttonsPopupMenu = new PopupBaseMenuItem({ style_class: 'popup-menu-layout-selection' });
         buttonsPopupMenu.add_actor(buttonsBoxLayout);
-        this.menu.addMenuItem(buttonsPopupMenu);
-
-        this._setLayouts(
-            GlobalState.get().layouts, 
-            Settings.get_selected_layouts()[imports.ui.main.layoutManager.primaryIndex]
-        );
-        // update the layouts shown by the indicator when they are modified
-        this._signals.connect(Settings, Settings.SETTING_LAYOUTS_JSON, () => {
-            this._setLayouts(
-                GlobalState.get().layouts, 
-                Settings.get_selected_layouts()[imports.ui.main.layoutManager.primaryIndex]
-            );
-        });
-
-        // if the selected layout was changed externaly, update the selected button
-        this._signals.connect(Settings, Settings.SETTING_SELECTED_LAYOUTS, () => {
-            const btnInd = Settings.get_selected_layouts()[imports.ui.main.layoutManager.primaryIndex];
-            if (this.layoutsButtons[btnInd].checked) return;
-            this.layoutsButtons.forEach((btn, layInd) => btn.set_checked(layInd === btnInd));
-        });
+        return buttonsPopupMenu;
     }
 
     private _createButton(icon_name: string, text: string) : St.Button {
-        const editLayoutsBtn = new St.Button({ 
+        const btn = new St.Button({ 
             style_class: "message-list-clear-button button default",
             can_focus: true,
             x_expand: false,
         });
-        editLayoutsBtn.child = new St.BoxLayout({
+        btn.child = new St.BoxLayout({
             x_align: ActorAlign.CENTER,
             y_align: ActorAlign.CENTER,
             x_expand: false,
@@ -123,20 +135,23 @@ export class Indicator extends PopupMenuButton {
             style: "spacing: 8px",
 
         });
-        editLayoutsBtn.child.add_child(new St.Icon({ icon_name: icon_name, icon_size: 16, x_expand: false }));
-        editLayoutsBtn.child.add_child(new St.Label({ margin_bottom: 4, margin_top: 4, text: text, x_expand: false, yAlign: ActorAlign.CENTER }));
-        return editLayoutsBtn;
+        btn.child.add_child(new St.Icon({ icon_name: icon_name, icon_size: 16, x_expand: false }));
+        btn.child.add_child(new St.Label({ margin_bottom: 4, margin_top: 4, text: text, x_expand: false, yAlign: ActorAlign.CENTER }));
+        return btn;
     }
 
-    private _setLayouts(layouts: Layout[], selectedIndex: number) {
+    private _drawLayouts() {
+        const layouts = GlobalState.get().layouts;
+        const selectedIndex = Settings.get_selected_layouts()[imports.ui.main.layoutManager.primaryIndex]
+        this.layoutsButtons.forEach(btn => btn.destroy());
+        this.layoutsButtons = [];
         this.layoutsBoxLayout.remove_all_children();
-        const scalingFactor = global.display.get_monitor_scale(Main.layoutManager.primaryIndex);
         
         const hasGaps = Settings.get_inner_gaps(1).top > 0;
 
         this.layoutsButtons = layouts.map((lay, btnInd) => {
             const btn = new St.Button({style_class: "popup-menu-layout-button button"});
-            btn.child = new LayoutSelectionWidget(lay, hasGaps ? 1:0, scalingFactor);
+            btn.child = new LayoutSelectionWidget(lay, hasGaps ? 1:0, this._scalingFactor);
             this.layoutsBoxLayout.add_child(btn);
             btn.connect('clicked', (self) => {
                 if (btn.checked) return;
@@ -154,6 +169,7 @@ export class Indicator extends PopupMenuButton {
     destroy() {
         this.layoutsButtons.forEach(btn => btn.destroy());
         this.layoutsButtons = [];
+        this._signals.disconnect();
         super.destroy();
     }
 }

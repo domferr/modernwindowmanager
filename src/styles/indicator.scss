@@ -1,0 +1,31 @@
+.popup-menu-layout-selection {
+    background-color: transparent !important;
+
+    // workaround to hide the empty space created by the popup ornament
+    .popup-menu-ornament {
+        width: 0;
+        height: 0;
+    }
+
+    .popup-menu-layout-button {
+        padding: calc($base_padding / 2);
+        margin-right: $base_padding;
+    }
+    
+    .popup-menu-layout-button:last-child {
+        margin-right: 0;
+    }
+
+    .popup-menu-layout-button:hover {
+        /*background-color: rgba(255,255,255,0.2);*/
+    }
+
+    .popup-menu-layout-button:checked {
+        border: rgba(255,255,255,0.8) solid 1px;
+        background-color: rgba(255,255,255,0.25);
+    }
+
+    .snap-assist-tile {
+        border-radius: 2px;
+    }
+}

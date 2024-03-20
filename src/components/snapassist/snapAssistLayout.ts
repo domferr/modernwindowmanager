@@ -12,8 +12,8 @@ const debug = logger("snapAssistLayout");
 
 @registerGObjectClass
 export class SnapAssistLayout extends LayoutWidget<SnapAssistTile> {
-    private static readonly _snapAssistHeight: number = 84;
-    private static readonly _snapAssistWidth: number = 150; // 16:9 ratio. -> (16*this._snapAssistHeight) / 9 and then rounded to int
+    private static readonly _snapAssistHeight: number = 68;
+    private static readonly _snapAssistWidth: number = 120; // 16:9 ratio. -> (16*this._snapAssistHeight) / 9 and then rounded to int
 
     constructor(parent: Actor | null, layout: Layout, gaps: Margin, scaleFactor: number) {
         const rect = new Rectangle({height: SnapAssistLayout._snapAssistHeight * scaleFactor, width: SnapAssistLayout._snapAssistWidth * scaleFactor, x: 0, y: 0});
@@ -36,36 +36,5 @@ export class SnapAssistLayout extends LayoutWidget<SnapAssistTile> {
                 && cursorPos.y >= pos.y && cursorPos.y <= pos.y + preview.rect.height;
             if (isHovering) return preview;
         }
-    }
-
-    public hide() {
-        this.set_height(0);
-        this.set_opacity(0);
-    }
-
-    public show() {
-        this.set_height(SnapAssistLayout._snapAssistHeight);
-        this.set_opacity(255);
-    }
-
-    public easeHide(params: {duration: number, mode: AnimationMode}) {
-        // @ts-ignore
-        this.ease({
-            height: 0,
-            opacity: 0,
-            duration: params.duration,
-            mode: params.mode,
-        })
-    }
-
-    public easeShow(params: {duration: number, mode: AnimationMode}) {
-        this.show();
-        // @ts-ignore
-        this.ease({
-            height: SnapAssistLayout._snapAssistHeight,
-            opacity: 255,
-            duration: params.duration,
-            mode: params.mode,
-        })
     }
 }

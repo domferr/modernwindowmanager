@@ -11,7 +11,7 @@ import TileUtils from "./TileUtils";
 
 const debug = logger(`LayoutWidget`);
 
-// A widget to draw layouts
+// A widget to draw a layout
 @registerGObjectClass
 export class LayoutWidget<TileType extends TilePreview> extends Widget {
     protected _previews: TileType[];

@@ -2,6 +2,7 @@ import { Global } from '@gi-types/shell0';
 import { getCurrentExtension } from '@/utils/shell';
 import { Rectangle } from "@gi-types/meta10";
 import { Actor, Margin } from "@gi-types/clutter10";
+import { ThemeContext } from '@gi-types/st1';
 
 export const global = Global.get();
 export const Main = imports.ui.main;
@@ -56,4 +57,10 @@ export const buildTileMargin = (tilePos: Rectangle, innerMargin: Margin, outerMa
         left: isLeft ? outerMargin.left:innerMargin.left/2,
         right: isRight ? outerMargin.right:innerMargin.right/2,
     })
+}
+
+export const getScalingFactor = (monitorIndex: number) => {
+    const scalingFactor = ThemeContext.get_for_stage(global.get_stage()).get_scale_factor();
+    if (scalingFactor === 1) return global.display.get_monitor_scale(monitorIndex);
+    return scalingFactor;
 }

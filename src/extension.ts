@@ -34,9 +34,33 @@ class Extension {
     Settings.bind('show-indicator', this._indicator, 'visible', SettingsBindFlags.DEFAULT);
   }
 
+  private _validateSettings() {
+    const selectedLayouts = Settings.get_selected_layouts();
+    const monitors = getMonitors();
+    const layouts = GlobalState.get().layouts;
+
+    if (selectedLayouts.length === 0) selectedLayouts.push(0);
+    while (monitors.length < selectedLayouts.length) {
+      selectedLayouts.pop();
+    }
+    while(monitors.length > selectedLayouts.length) {
+      selectedLayouts.push(selectedLayouts[0]);
+    }
+
+    if (selectedLayouts[0] > layouts.length) selectedLayouts[0] = 0;
+
+    for (let i = 0; i < selectedLayouts.length; i++) {
+      if (selectedLayouts[i] > layouts.length) {
+        selectedLayouts[i] = selectedLayouts[0];
+      }
+    }
+    Settings.save_selected_layouts_json(selectedLayouts);
+  }
+
   enable(): void {
     Settings.initialize();
-    
+    this._validateSettings();
+
     //@ts-ignore
     if (Main.layoutManager._startingUp) {
       this._signals.connect(Main.layoutManager, 'startup-complete', () => {
@@ -73,7 +97,7 @@ class Extension {
           if (monitor.index >= oldIndexes.length) return oldIndexes[imports.ui.main.layoutManager.primaryIndex];
           return oldIndexes[monitor.index];
         })
-        Settings.set_selected_layouts(indexes);
+        Settings.save_selected_layouts_json(indexes);
         
         this._createTilingManagers();
       } else {

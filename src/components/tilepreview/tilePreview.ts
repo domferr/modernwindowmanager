@@ -65,12 +65,6 @@ export class TilePreview extends Widget {
     return this._showing;
   }
 
-  /*public set rect(newRect: Rectangle) {
-    this._rect = newRect;
-    this.set_size(this._rect.width, this._rect.height);
-    this.set_position(this._rect.x, this._rect.y);
-  }*/
-
   open(ease: boolean = false, position?: Rectangle) {
     if (position) this._rect = position;
     
@@ -134,10 +128,5 @@ export class TilePreview extends Widget {
       mode: AnimationMode.EASE_OUT_QUAD,
       onComplete: () => this.hide(),
     });
-  }
-
-  destroy() {
-    //debug(`destroy tile at position { x: ${this.x}, y: ${this.y} }`);
-    super.destroy();
   }
 }

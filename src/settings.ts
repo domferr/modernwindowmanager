@@ -89,8 +89,8 @@ export default class Settings {
                     new Tile({ x:0.33, y:0, height: 1, width: 0.67 }),
                 ]),
                 new Layout([
-                    new Tile({ x:0.33, y:0, height: 1, width: 0.67 }),
-                    new Tile({ x:0, y:0, height: 1, width: 0.33 }),
+                    new Tile({ x:0, y:0, height: 1, width: 0.67 }),
+                    new Tile({ x:0.67, y:0, height: 1, width: 0.33 }),
                 ]),
             ];
             this.save_layouts_json(defaultLayouts);
@@ -102,12 +102,12 @@ export default class Settings {
         this._settings.set_string(this.SETTING_LAYOUTS_JSON, JSON.stringify(layouts));
     }
 
-    static get_selected_layouts() : number[] {
-        return this._settings.get_strv(Settings.SETTING_SELECTED_LAYOUTS).map(str => Number.parseInt(str));
+    static save_selected_layouts_json(indexes: number[]) {
+        this._settings.set_strv(Settings.SETTING_SELECTED_LAYOUTS, indexes.map(num => `${num}`));
     }
 
-    static set_selected_layouts(indexes: number[]) {
-        this._settings.set_strv(Settings.SETTING_SELECTED_LAYOUTS, indexes.map(num => `${num}`));
+    static get_selected_layouts() : number[] {
+        return this._settings.get_strv(Settings.SETTING_SELECTED_LAYOUTS).map(str => Number.parseInt(str) || 0);
     }
 
     static connect(key: string, func: (...arg: any[]) => void) : number {
