@@ -35,7 +35,7 @@ export class TilingLayout extends LayoutWidget<TilePreview> {
     }
 
     protected buildTile(parent: Actor, rect: Rectangle, gaps: Margin, tile: Tile): TilePreview {
-        return this._blur ? new BlurTilePreview({parent, rect, gaps, tile}):new TilePreview({parent, rect, gaps, tile});
+        return this._blur ? new BlurTilePreview({parent, rect, gaps}):new TilePreview({parent, rect, gaps});
     }
 
     public get showing(): boolean {

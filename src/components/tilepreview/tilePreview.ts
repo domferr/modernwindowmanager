@@ -4,7 +4,6 @@ import {registerGObjectClass} from "@/utils/gjs";
 import {logger} from "@/utils/shell";
 import {global} from "@/utils/ui";
 import { Actor, AnimationMode, Margin } from '@gi-types/clutter10';
-import Tile from "../layout/Tile";
 
 export const WINDOW_ANIMATION_TIME = 100;
 
@@ -15,19 +14,16 @@ export class TilePreview extends Widget {
   private _gaps: Margin;
   protected _rect: Rectangle;
   protected _showing: boolean;
-  protected _tile: Tile;
 
   constructor(params: {
     parent?: Actor,
     rect?: Rectangle,
-    gaps?: Margin,
-    tile: Tile
+    gaps?: Margin
   }) {
     super();
     this._rect = params.rect || new Rectangle({ width: 0 });
     this._gaps = params.gaps || new Margin();
     if (params.parent) params.parent.add_child(this);
-    this._tile = params.tile;
   }
 
   public set gaps(gaps: Margin) {

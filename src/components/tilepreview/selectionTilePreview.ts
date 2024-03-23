@@ -17,7 +17,7 @@ export class SelectionTilePreview extends TilePreview {
     rect?: Rectangle,
     gaps?: Margin,
   }) {
-    super({tile: new Tile({x:0, y:0, width: 0, height: 0}), ...params});
+    super(params);
     this._recolor();
     this._styleChangedSignalID = this.connect("style-changed", () => {
       const { red, green, blue } = this.get_theme_node().get_background_color();

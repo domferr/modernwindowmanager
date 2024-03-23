@@ -33,12 +33,10 @@ export class Slider extends St.Button {
         this._minTileHeight = minTileHeight;
     }
 
-    public addNextTile(tile: EditableTilePreview) {
-        this._nextTiles.push(tile);
-    }
-
-    public addPreviousTile(tile: EditableTilePreview) {
-        this._previousTiles.push(tile);
+    public addTile(tile: EditableTilePreview) {
+        const isNext = this._horizontalDir ? this.x <= tile.rect.x:this.y <= tile.rect.y;
+        if (isNext) this._nextTiles.push(tile);
+        else this._previousTiles.push(tile);
     }
 
     vfunc_button_press_event(event: Clutter.ButtonEvent) {
