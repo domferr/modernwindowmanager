@@ -65,7 +65,7 @@ export class TilePreview extends Widget {
     return this._showing;
   }
 
-  open(ease: boolean = false, position?: Rectangle) {
+  public open(ease: boolean = false, position?: Rectangle) {
     if (position) this._rect = position;
     
     /*debug(
@@ -97,7 +97,7 @@ export class TilePreview extends Widget {
     }
   }
 
-  openBelow(window: Window, ease: boolean = false, position?: Rectangle) {
+  public openBelow(window: Window, ease: boolean = false, position?: Rectangle) {
     if (this.get_parent() === global.window_group) {
       let windowActor = window.get_compositor_private();
       if (!windowActor) return;
@@ -107,7 +107,7 @@ export class TilePreview extends Widget {
     this.open(ease, position);
   }
 
-  openAbove(window: Window, ease: boolean = false, position?: Rectangle) {
+  public openAbove(window: Window, ease: boolean = false, position?: Rectangle) {
     if (this.get_parent() === global.window_group) {
       let windowActor = window.get_compositor_private();
       if (!windowActor) return;
@@ -117,7 +117,7 @@ export class TilePreview extends Widget {
     this.open(ease, position);
   }
 
-  close() {
+  public close() {
     if (!this._showing) return;
 
     this._showing = false;

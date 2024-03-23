@@ -1,6 +1,6 @@
 import { Display, Rectangle, SizeChange, Window, GrabOp } from '@gi-types/meta10';
 import { logger } from "@/utils/shell";
-import { buildTileMargin, global, isPointInsideRect, Main } from "@/utils/ui";
+import { buildTileMargin, getScalingFactor, global, isPointInsideRect, Main } from "@/utils/ui";
 import { TilingLayout } from "@/components/tilingLayout";
 import { Margin, ModifierType } from "@gi-types/clutter10";
 import { PRIORITY_DEFAULT_IDLE, Source, SOURCE_CONTINUE, SOURCE_REMOVE, timeout_add } from "@gi-types/glib2";
@@ -49,8 +49,7 @@ export class TilingManager {
         const layout: Layout = GlobalState.get().layouts[Settings.get_selected_layouts()[monitor.index]];
 
         // handle scale factor of the monitor
-        this._scaleFactor = ThemeContext.get_for_stage(global.get_stage()).get_scale_factor();
-        if (this._scaleFactor === 1) this._scaleFactor = global.display.get_monitor_scale(monitor.index);
+        this._scaleFactor = getScalingFactor(monitor.index);
         this._debug(`monitor ${monitor.index} scale factor is ${global.display.get_monitor_scale(monitor.index)} and ThemeContext scale factor is ${ThemeContext.get_for_stage(global.get_stage()).get_scale_factor()}`);
         
         this._innerGaps = new Margin(Settings.get_inner_gaps(this._scaleFactor));
