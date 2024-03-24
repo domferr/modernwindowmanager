@@ -2,9 +2,14 @@ import { registerGObjectClass } from "@/utils/gjs";
 import Clutter from "@gi-types/clutter10";
 import St from "@gi-types/st1";
 import { EditableTilePreview } from "./editableTilePreview";
+import { logger } from "@/utils/shell";
+
+const debug = logger("Slider");
 
 @registerGObjectClass
 export class Slider extends St.Button {
+    private readonly _minTileSize: number = 140;
+
     private _dragging: boolean;
     private _grab: any;
     private _horizontalDir: boolean;
@@ -12,31 +17,40 @@ export class Slider extends St.Button {
 
     private _previousTiles: EditableTilePreview[];
     private _nextTiles: EditableTilePreview[];
-    private _minTileWidth: number;
-    private _minTileHeight: number;
+    private _minTileCoord: number;
+    private _maxTileCoord: number;
 
-    constructor(parent: Clutter.Actor, size: number, x: number, y: number, horizontal: boolean, minTileWidth: number, minTileHeight: number) {
+    constructor(parent: Clutter.Actor, size: number, x: number, y: number, horizontal: boolean) {
         super({ 
             style_class: "icon-button layout-editor-slider",
             can_focus: true,
             x_expand: false
         });
         parent.add_child(this);
+        this._horizontalDir = horizontal;
+
+        this._previousTiles = [];
+        this._nextTiles = [];
+        this._minTileCoord = Number.MAX_VALUE;
+        this._maxTileCoord = Number.MIN_VALUE;
+
         this.child = new St.Icon({ icon_name: "list-add-symbolic", icon_size: size, x_expand: false });
         this._dragging = false;
         this._lastEventCoord = null;
-        this._horizontalDir = horizontal;
-        this.set_position(x - (this.width / 2), y - (this.height / 2));
-        this._previousTiles = [];
-        this._nextTiles = [];
-        this._minTileWidth = minTileWidth;
-        this._minTileHeight = minTileHeight;
+        this.set_position(Math.round(x - (this.width / 2)), Math.round(y - (this.height / 2)));
     }
 
     public addTile(tile: EditableTilePreview) {
         const isNext = this._horizontalDir ? this.x <= tile.rect.x:this.y <= tile.rect.y;
         if (isNext) this._nextTiles.push(tile);
         else this._previousTiles.push(tile);
+
+        this._minTileCoord = Math.min(this._minTileCoord, this._horizontalDir ? tile.rect.y:tile.rect.x);
+        this._maxTileCoord = Math.max(this._maxTileCoord, this._horizontalDir ? tile.rect.y + tile.rect.height:tile.rect.x + tile.rect.width);
+
+        const newCoord = (this._minTileCoord + this._maxTileCoord) / 2;
+        if (this._horizontalDir) this.set_y(Math.round(newCoord - (this.height / 2)));
+        else this.set_x(Math.round(newCoord - (this.width / 2)));
     }
 
     vfunc_button_press_event(event: Clutter.ButtonEvent) {
@@ -88,6 +102,8 @@ export class Slider extends St.Button {
     }
 
     private _move(eventX: number, eventY: number) {
+        eventX = Math.round(eventX);
+        eventY = Math.round(eventY);
         if (this._lastEventCoord !== null) {
             const movement = {
                 x: this._horizontalDir ? eventX - this._lastEventCoord.x:0, 
@@ -98,14 +114,14 @@ export class Slider extends St.Button {
             const _previousTileNewSize: { width: number, height: number }[] = [];
             for (const prevTile of this._previousTiles) {
                 const newSize = {width: prevTile.rect.width + movement.x, height: prevTile.rect.height + movement.y};
-                if (newSize.width < this._minTileWidth || newSize.height < this._minTileHeight) return;
+                if (newSize.width < this._minTileSize || newSize.height < this._minTileSize) return;
 
                 _previousTileNewSize.push(newSize);
             }
             const _nextTileNewSize: { width: number, height: number }[] = [];
             for (const nextTile of this._nextTiles) {
                 const newSize = {width: nextTile.rect.width - movement.x, height: nextTile.rect.height - movement.y};
-                if (newSize.width < this._minTileWidth || newSize.height < this._minTileHeight) return;
+                if (newSize.width < this._minTileSize || newSize.height < this._minTileSize) return;
 
                 _nextTileNewSize.push(newSize);
             }
@@ -128,6 +144,8 @@ export class Slider extends St.Button {
     public destroy(): void {
         this._previousTiles = [];
         this._nextTiles = [];
+        this._lastEventCoord = null;
+        this._endDragging();
         super.destroy();
     }
 }

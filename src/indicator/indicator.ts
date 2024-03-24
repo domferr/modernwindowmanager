@@ -42,7 +42,7 @@ export class Indicator extends PopupMenuButton {
     private layoutsButtons: St.Button[] = [];
     private readonly _signals: SignalHandling;
     private _scalingFactor: number = 0;
-    private _layoutEditor: LayoutEditor;
+    private _layoutEditor: LayoutEditor | null = null;
 
     constructor() {
         super(0.5, 'Modern Window Manager Indicator', false);
@@ -112,15 +112,20 @@ export class Indicator extends PopupMenuButton {
         });
         buttonsBoxLayout.add_child(editLayoutsBtn);
         const newLayoutBtn = this._createButton("list-add-symbolic", "New Layout...");
-        newLayoutBtn.connect('clicked', (self) => {            
+        newLayoutBtn.connect('clicked', (self) => {     
             debug("Clicked the new layout button");
-            const newLayout = new Layout([
-                new Tile({x: 0, y: 0, width: 0.11, height: 0.65}),
-                new Tile({x: 0.33, y: 0, width: 0.67, height: 1}),
-                new Tile({x: 0.11, y: 0, width: 0.22, height: 1}),
-                new Tile({x: 0, y: 0.65, width: 0.11, height: 0.35}),
-            ]);
-            this._layoutEditor = new LayoutEditor(newLayout, Main.layoutManager.monitors[Main.layoutManager.primaryIndex]);
+            if (this._layoutEditor) {
+                this._layoutEditor.destroy();
+                this._layoutEditor = null;
+            } else {
+                const newLayout = new Layout([
+                    new Tile({x: 0, y: 0, width: 0.11, height: 0.65}),
+                    new Tile({x: 0.33, y: 0, width: 0.67, height: 1}),
+                    new Tile({x: 0.11, y: 0, width: 0.22, height: 1}),
+                    new Tile({x: 0, y: 0.65, width: 0.11, height: 0.35}),
+                ]);
+                this._layoutEditor = new LayoutEditor(newLayout, Main.layoutManager.monitors[Main.layoutManager.primaryIndex]);
+            }
             this.menu.toggle();
         });
         buttonsBoxLayout.add_child(newLayoutBtn);
@@ -177,6 +182,8 @@ export class Indicator extends PopupMenuButton {
     }
 
     destroy() {
+        this._layoutEditor?.destroy();
+        this._layoutEditor = null;
         this.layoutsButtons.forEach(btn => btn.destroy());
         this.layoutsButtons = [];
         this._signals.disconnect();

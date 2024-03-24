@@ -8,10 +8,13 @@ import { Layout } from "../layout/Layout";
 import TileUtils from "../layout/TileUtils";
 import { Slider } from "./slider";
 import { EditableTilePreview } from "./editableTilePreview";
+import { logger } from "@/utils/shell";
+
+const debug = logger("LayoutEditor");
 
 @registerGObjectClass
 export class LayoutEditor extends St.Widget {
-    private readonly _sliderSize: number = 16;
+    private readonly _sliderSize: number = 12;
 
     private _layout: Layout;
     private _sliders: Slider[];
@@ -34,85 +37,67 @@ export class LayoutEditor extends St.Widget {
         this._sliders = [];
         const containerRect = new Meta.Rectangle({x: 0, y:0, width: this._workArea.width, height: this._workArea.height});
         
-        const previews: EditableTilePreview[] = [];
-        const groupByX = new Map<number, EditableTilePreview[]>();
-        const groupByY = new Map<number, EditableTilePreview[]>();
-        
-        this._layout.tiles.forEach(tile => {
+        const previews = this._layout.tiles.map(tile => {
             const rect = TileUtils.apply_props(tile, containerRect);
             const gaps = buildTileMargin(rect, this._innerGaps, this._outerGaps, containerRect);            
-            const editableTile = new EditableTilePreview({ parent: this, rect, gaps });
-            previews.push(editableTile);
-            
+            const editableTile = new EditableTilePreview({ tile, parent: this, rect, gaps });
+            editableTile.open();
+            return editableTile;
+        });
+
+        const groupByX = new Map<number, Slider>();
+        const groupByY = new Map<number, Slider>();
+
+        previews.forEach(editableTile => {
+            const tile = editableTile.tile;
+            const rect = editableTile.rect;
+
             if (tile.x + tile.width < 1) {
-                if (!groupByX.has(rect.x + rect.width)) groupByX.set(rect.x + rect.width, []);
-                groupByX.get(rect.x + rect.width)?.push(editableTile);
+                if (!groupByX.has(tile.x + tile.width)) {
+                    const slider = this._buildSlider(true, rect.x + rect.width);
+                    this._sliders.push(slider);
+                    groupByX.set(tile.x + tile.width, slider);
+                }
+                groupByX.get(tile.x + tile.width)?.addTile(editableTile);
             }
             if (tile.x > 0) {
-                if (!groupByX.has(rect.x)) groupByX.set(rect.x, []);
-                groupByX.get(rect.x)?.push(editableTile);
+                if (!groupByX.has(tile.x)) {
+                    const slider = this._buildSlider(true, rect.x);
+                    this._sliders.push(slider);
+                    groupByX.set(tile.x, slider);
+                }
+                groupByX.get(tile.x)?.addTile(editableTile);
             }
 
             if (tile.y + tile.height < 1) {
-                if (!groupByY.has(rect.y + rect.height)) groupByY.set(rect.y + rect.height, []);
-                groupByY.get(rect.y + rect.height)?.push(editableTile);
+                if (!groupByY.has(tile.y + tile.height)) {
+                    const slider = this._buildSlider(false, rect.y + rect.height);
+                    this._sliders.push(slider);
+                    groupByY.set(tile.y + tile.height, slider);
+                }
+                groupByY.get(tile.y + tile.height)?.addTile(editableTile);
             }
             if (tile.y > 0) {
-                if (!groupByY.has(rect.y)) groupByY.set(rect.y, []);
-                groupByY.get(rect.y)?.push(editableTile);
+                if (!groupByY.has(tile.y)) {
+                    const slider = this._buildSlider(false, rect.y);
+                    this._sliders.push(slider);
+                    groupByY.set(tile.y, slider);
+                }
+                groupByY.get(tile.y)?.addTile(editableTile);
             }
-        });
-        
-        groupByX.forEach((tiles, xPos) => {
-            const minYPos = tiles.map(tile => tile.rect.y).reduce((prevVal, currVal) => prevVal < currVal ? prevVal : currVal);
-            const maxYPos = tiles.map(tile => tile.rect.y + tile.rect.height).reduce((prevVal, currVal) => prevVal < currVal ? currVal : prevVal);
-            const slider = new Slider(
-                this, 
-                this._sliderSize * this._scaleFactor,
-                xPos,
-                (minYPos + maxYPos) / 2,
-                true,
-                140,
-                140
-            );
-            tiles.forEach((preview) => slider.addTile(preview));
-            this._sliders.push(slider);
-        });
-
-        groupByY.forEach((tiles, yPos) => {
-            const minXPos = tiles.map(tile => tile.rect.x).reduce((prevVal, currVal) => prevVal < currVal ? prevVal : currVal);
-            const maxXPos = tiles.map(tile => tile.rect.x + tile.rect.width).reduce((prevVal, currVal) => prevVal < currVal ? currVal : prevVal);
-            const slider = new Slider(
-                this, 
-                this._sliderSize * this._scaleFactor,
-                (minXPos + maxXPos) / 2,
-                yPos,
-                false,
-                140,
-                140
-            );
-            tiles.forEach((preview) => slider.addTile(preview));
-            this._sliders.push(slider);
         });
 
         previews.forEach(preview => preview.open());
+    }
 
-        /*this._previews.forEach(prev => {
-            const rect = prev.rect;
-            if (rect.x + rect.width < this._workArea.width) {
-                const slider = new Slider(
-                    this, 
-                    this._sliderSize * this._scaleFactor,
-                    rect.x + rect.width,
-                    rect.y + (rect.height / 2),
-                    true,
-                    140,
-                    140
-                );
-                slider.addPreviousTile(prev);
-                this._sliders.push(slider);
-            }
-        });
-        this._sliders[0].addNextTile(this._previews[this._previews.length - 1]);*/
+    private _buildSlider(isHorizontal: boolean, coord: number) : Slider {
+        debug(`build slider at ${coord}`);
+        return new Slider(
+            this, 
+            this._sliderSize * this._scaleFactor,
+            coord,
+            coord,
+            isHorizontal
+        );
     }
 }

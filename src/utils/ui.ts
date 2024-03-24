@@ -60,6 +60,7 @@ export const buildTileMargin = (tilePos: Rectangle, innerMargin: Margin, outerMa
 }
 
 export const getScalingFactor = (monitorIndex: number) => {
+    if (Main.layoutManager.monitors.length == 1) return 1;
     const scalingFactor = ThemeContext.get_for_stage(global.get_stage()).get_scale_factor();
     if (scalingFactor === 1) return global.display.get_monitor_scale(monitorIndex);
     return scalingFactor;
