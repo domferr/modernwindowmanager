@@ -1,8 +1,9 @@
 import { registerGObjectClass } from "@/utils/gjs";
-import Clutter from "@gi-types/clutter10";
-import St from "@gi-types/st1";
+import Clutter, { ActorAlign } from "@gi-types/clutter10";
+import St, { Side } from "@gi-types/st1";
 import { EditableTilePreview } from "./editableTilePreview";
 import { logger } from "@/utils/shell";
+import { Rectangle } from "@gi-types/meta10";
 
 const debug = logger("Slider");
 
@@ -40,17 +41,36 @@ export class Slider extends St.Button {
         this.set_position(Math.round(x - (this.width / 2)), Math.round(y - (this.height / 2)));
     }
 
+    public get horizontal() : boolean {
+        return this._horizontalDir;
+    }
+
     public addTile(tile: EditableTilePreview) {
         const isNext = this._horizontalDir ? this.x <= tile.rect.x:this.y <= tile.rect.y;
         if (isNext) this._nextTiles.push(tile);
         else this._previousTiles.push(tile);
 
+        const side = this._horizontalDir ? (isNext ? Side.LEFT:Side.RIGHT):(isNext ? Side.TOP:Side.BOTTOM);
+        tile.addSlider(this, side);
+
         this._minTileCoord = Math.min(this._minTileCoord, this._horizontalDir ? tile.rect.y:tile.rect.x);
         this._maxTileCoord = Math.max(this._maxTileCoord, this._horizontalDir ? tile.rect.y + tile.rect.height:tile.rect.x + tile.rect.width);
 
-        const newCoord = (this._minTileCoord + this._maxTileCoord) / 2;
-        if (this._horizontalDir) this.set_y(Math.round(newCoord - (this.height / 2)));
-        else this.set_x(Math.round(newCoord - (this.width / 2)));
+        this._updatePosition();
+    }
+
+    public removeTile(tileToRemove: EditableTilePreview) {
+        const isNext = this._horizontalDir ? this.x <= tileToRemove.rect.x:this.y <= tileToRemove.rect.y;
+        const oldArray = isNext ? this._nextTiles:this._previousTiles;
+        if (isNext) this._nextTiles = [];
+        else this._previousTiles = [];
+
+        this._minTileCoord = Number.MAX_VALUE;
+        this._maxTileCoord = Number.MIN_VALUE;
+
+        oldArray
+            .filter(tile => tile !== tileToRemove)
+            .forEach(tile => this.addTile(tile));
     }
 
     vfunc_button_press_event(event: Clutter.ButtonEvent) {
@@ -125,23 +145,52 @@ export class Slider extends St.Button {
 
                 _nextTileNewSize.push(newSize);
             }
-            // all the computed new sizes of each previous and next tile is valid,
+            // all the computed new sizes of each previous and next tile are valid,
             // we can update the slider position and the tiles size 
             this.set_position(this.x + movement.x, this.y + movement.y);
+            const affectedSliders = new Set<Slider>();
             this._nextTiles.forEach((nextTile, ind) => {
                 nextTile.updatePosition(nextTile.rect.x + movement.x, nextTile.rect.y + movement.y);
                 const newSize = _nextTileNewSize[ind];
                 nextTile.updateSize(newSize.width, newSize.height);
+                nextTile.sliders.forEach(otherSlider => {
+                    if (otherSlider && otherSlider.horizontal !== this._horizontalDir) 
+                        affectedSliders.add(otherSlider)
+                });
             });
+            const prevAffectedSliders = new Set<Slider>();
             this._previousTiles.forEach((prevTile, ind) => {
                 const newSize = _previousTileNewSize[ind];
                 prevTile.updateSize(newSize.width, newSize.height);
+                prevTile.sliders.forEach(otherSlider => {
+                    if (otherSlider && otherSlider.horizontal !== this._horizontalDir) {
+                        if (affectedSliders.has(otherSlider)) affectedSliders.delete(otherSlider);
+                        else prevAffectedSliders.add(otherSlider);
+                    }
+                });
             });
+            affectedSliders.forEach(slider => slider._onTileSizeChanged(this._horizontalDir ? movement.x:movement.y));
+            prevAffectedSliders.forEach(slider => slider._onTileSizeChanged(this._horizontalDir ? movement.x:movement.y));
         }
         this._lastEventCoord = { x: eventX, y: eventY };
     }
 
+    private _onTileSizeChanged(movement: number) {
+        this._minTileCoord += movement / 2;
+        this._maxTileCoord += movement / 2;
+        
+        this._updatePosition();
+    }
+
+    private _updatePosition() {
+        const newCoord = (this._minTileCoord + this._maxTileCoord) / 2;
+        if (this._horizontalDir) this.set_y(Math.round(newCoord - (this.height / 2)));
+        else this.set_x(Math.round(newCoord - (this.width / 2)));
+    }
+
     public destroy(): void {
+        this._minTileCoord = Number.MAX_VALUE;
+        this._maxTileCoord = Number.MIN_VALUE;
         this._previousTiles = [];
         this._nextTiles = [];
         this._lastEventCoord = null;

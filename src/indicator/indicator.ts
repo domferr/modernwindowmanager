@@ -37,28 +37,28 @@ export class LayoutSelectionWidget extends LayoutWidget<SnapAssistTile> {
 
 @registerGObjectClass
 export class Indicator extends PopupMenuButton {
-    private icon: St.Icon;
-    private layoutsBoxLayout: St.BoxLayout;
-    private layoutsButtons: St.Button[] = [];
     private readonly _signals: SignalHandling;
+
+    private _layoutsBoxLayout: St.BoxLayout;
+    private layoutsButtons: St.Button[] = [];
     private _scalingFactor: number = 0;
     private _layoutEditor: LayoutEditor | null = null;
 
     constructor() {
         super(0.5, 'Modern Window Manager Indicator', false);
         this._signals = new SignalHandling();
-        this.icon = new St.Icon({
+        const icon = new St.Icon({
             gicon: Gio.icon_new_for_string(`${getCurrentExtension().path}/icons/indicator.svg`),
             style_class: 'system-status-icon indicator-icon',
         });
 
-        this.add_child(this.icon);
+        this.add_child(icon);
 
         //@ts-ignore
         let monitor = Main.layoutManager.findMonitorForActor(this);
         this._scalingFactor = getScalingFactor(monitor?.index || Main.layoutManager.primaryIndex);
 
-        this.layoutsBoxLayout = new St.BoxLayout({
+        this._layoutsBoxLayout = new St.BoxLayout({
             x_align: ActorAlign.CENTER,
             y_align: ActorAlign.CENTER,
             x_expand: true,
@@ -66,7 +66,7 @@ export class Indicator extends PopupMenuButton {
             vertical: false // horizontal box layout
         });
         const layoutsPopupMenu = new PopupBaseMenuItem({ style_class: 'popup-menu-layout-selection' });
-        layoutsPopupMenu.add_actor(this.layoutsBoxLayout);
+        layoutsPopupMenu.add_actor(this._layoutsBoxLayout);
         this.menu.addMenuItem(layoutsPopupMenu);
 
         this._drawLayouts();
@@ -119,10 +119,12 @@ export class Indicator extends PopupMenuButton {
                 this._layoutEditor = null;
             } else {
                 const newLayout = new Layout([
-                    new Tile({x: 0, y: 0, width: 0.11, height: 0.65}),
-                    new Tile({x: 0.33, y: 0, width: 0.67, height: 1}),
-                    new Tile({x: 0.11, y: 0, width: 0.22, height: 1}),
-                    new Tile({x: 0, y: 0.65, width: 0.11, height: 0.35}),
+                    new Tile({x: 0, y: 0, width: 0.30, height: 0.2}),
+                    new Tile({x: 0, y: 0.2, width: 0.12, height: 0.16}),
+                    new Tile({x: 0.12, y: 0.2, width: 0.18, height: 0.16}),
+                    new Tile({x: 0, y: 0.36, width: 0.30, height: 0.64}),
+                    new Tile({x: 0.3, y: 0, width: 0.47, height: 1}),
+                    new Tile({x: 0.77, y: 0, width: 0.23, height: 1}),
                 ]);
                 this._layoutEditor = new LayoutEditor(newLayout, Main.layoutManager.monitors[Main.layoutManager.primaryIndex]);
             }
@@ -160,14 +162,14 @@ export class Indicator extends PopupMenuButton {
         const selectedIndex = Settings.get_selected_layouts()[imports.ui.main.layoutManager.primaryIndex]
         this.layoutsButtons.forEach(btn => btn.destroy());
         this.layoutsButtons = [];
-        this.layoutsBoxLayout.remove_all_children();
+        this._layoutsBoxLayout.remove_all_children();
         
         const hasGaps = Settings.get_inner_gaps(1).top > 0;
 
         this.layoutsButtons = layouts.map((lay, btnInd) => {
             const btn = new St.Button({style_class: "popup-menu-layout-button button"});
             btn.child = new LayoutSelectionWidget(lay, hasGaps ? 1:0, this._scalingFactor);
-            this.layoutsBoxLayout.add_child(btn);
+            this._layoutsBoxLayout.add_child(btn);
             btn.connect('clicked', (self) => {
                 if (btn.checked) return;
                 
@@ -181,7 +183,7 @@ export class Indicator extends PopupMenuButton {
         this.layoutsButtons[selectedIndex].set_checked(true);
     }
 
-    destroy() {
+    public destroy() {
         this._layoutEditor?.destroy();
         this._layoutEditor = null;
         this.layoutsButtons.forEach(btn => btn.destroy());

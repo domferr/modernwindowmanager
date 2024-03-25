@@ -8,6 +8,15 @@ export default class TileUtils {
             y: (container.height * tile.y) + container.y,
             width: container.width * tile.width,
             height: container.height * tile.height,
-        })
+        });
+    }
+
+    static build_tile(rect: Rectangle, container: Rectangle): Tile {
+        return new Tile({
+            x: (rect.x - container.x) / container.width,
+            y: (rect.y - container.y) / container.height,
+            width: rect.width / container.width,
+            height: rect.height / container.height
+        });
     }
 }

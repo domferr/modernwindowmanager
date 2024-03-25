@@ -1,7 +1,7 @@
 import { registerGObjectClass } from "@/utils/gjs";
-import Clutter from "@gi-types/clutter10";
-import St from "@gi-types/st1";
-import Meta from "@gi-types/meta10";
+import Clutter, { ModifierType } from "@gi-types/clutter10";
+import St, { Side } from "@gi-types/st1";
+import Meta, { Rectangle } from "@gi-types/meta10";
 import Settings from "@/settings";
 import { Main, buildTileMargin, getScalingFactor } from "@/utils/ui";
 import { Layout } from "../layout/Layout";
@@ -9,16 +9,19 @@ import TileUtils from "../layout/TileUtils";
 import { Slider } from "./slider";
 import { EditableTilePreview } from "./editableTilePreview";
 import { logger } from "@/utils/shell";
+import Tile from "../layout/Tile";
+import SignalHandling from "@/signalHandling";
 
 const debug = logger("LayoutEditor");
 
 @registerGObjectClass
 export class LayoutEditor extends St.Widget {
+    private readonly _signals: SignalHandling;
     private readonly _sliderSize: number = 12;
 
     private _layout: Layout;
+    private _containerRect: Rectangle;
     private _sliders: Slider[];
-    private _workArea: Meta.Rectangle;
     private _scaleFactor: number;
     private _innerGaps: Clutter.Margin;
     private _outerGaps: Clutter.Margin;
@@ -26,24 +29,19 @@ export class LayoutEditor extends St.Widget {
     constructor(layout: Layout, monitor: Monitor) {
         super({ style_class: "layout-editor" });
         global.window_group.add_child(this);
+        this._signals = new SignalHandling();
 
         this._layout = layout;
-        this._workArea = Main.layoutManager.getWorkAreaForMonitor(monitor.index);
-        this.set_position(this._workArea.x, this._workArea.y);
-        this.set_size(this._workArea.width, this._workArea.height);
+        const workArea = Main.layoutManager.getWorkAreaForMonitor(monitor.index);
+        this.set_position(workArea.x, workArea.y);
+        this.set_size(workArea.width, workArea.height);
         this._scaleFactor = getScalingFactor(monitor.index);
         this._innerGaps = new Clutter.Margin(Settings.get_inner_gaps(this._scaleFactor));
         this._outerGaps = new Clutter.Margin(Settings.get_outer_gaps(this._scaleFactor));
         this._sliders = [];
-        const containerRect = new Meta.Rectangle({x: 0, y:0, width: this._workArea.width, height: this._workArea.height});
+        this._containerRect = new Meta.Rectangle({x:0, y:0, width: workArea.width, height: workArea.height});
         
-        const previews = this._layout.tiles.map(tile => {
-            const rect = TileUtils.apply_props(tile, containerRect);
-            const gaps = buildTileMargin(rect, this._innerGaps, this._outerGaps, containerRect);            
-            const editableTile = new EditableTilePreview({ tile, parent: this, rect, gaps });
-            editableTile.open();
-            return editableTile;
-        });
+        const previews = this._layout.tiles.map(tile => this._buildEditableTile(tile));
 
         const groupByX = new Map<number, Slider>();
         const groupByY = new Map<number, Slider>();
@@ -55,16 +53,16 @@ export class LayoutEditor extends St.Widget {
             if (tile.x + tile.width < 1) {
                 if (!groupByX.has(tile.x + tile.width)) {
                     const slider = this._buildSlider(true, rect.x + rect.width);
-                    this._sliders.push(slider);
                     groupByX.set(tile.x + tile.width, slider);
+                    this._sliders.push(slider);
                 }
                 groupByX.get(tile.x + tile.width)?.addTile(editableTile);
             }
             if (tile.x > 0) {
                 if (!groupByX.has(tile.x)) {
                     const slider = this._buildSlider(true, rect.x);
-                    this._sliders.push(slider);
                     groupByX.set(tile.x, slider);
+                    this._sliders.push(slider);
                 }
                 groupByX.get(tile.x)?.addTile(editableTile);
             }
@@ -86,12 +84,70 @@ export class LayoutEditor extends St.Widget {
                 groupByY.get(tile.y)?.addTile(editableTile);
             }
         });
+    }
 
-        previews.forEach(preview => preview.open());
+    private _buildEditableTile(tile: Tile) : EditableTilePreview {
+        const rect = TileUtils.apply_props(tile, this._containerRect);
+        const gaps = buildTileMargin(rect, this._innerGaps, this._outerGaps, this._containerRect);
+        const editableTile = new EditableTilePreview({ tile, containerRect: this._containerRect, parent: this, rect, gaps });
+        editableTile.open();
+        this._signals.connect(editableTile, "clicked", () => this.onTileClick(editableTile));
+        return editableTile;
+    }
+
+    private onTileClick(editableTile: EditableTilePreview): void {
+        const oldTile = editableTile.tile;
+        const index = this._layout.tiles.indexOf(oldTile);
+        if (index < 0) return;
+
+        const [x, y, modifier] = global.get_pointer();
+        // do not split horizontally when CTRL is pressed
+        const splitHorizontally = (modifier & ModifierType.CONTROL_MASK) == 0;
+
+        const prevTile = new Tile({
+            x: oldTile.x,
+            y: oldTile.y,
+            width: splitHorizontally ? (oldTile.width / 2):oldTile.width,
+            height: splitHorizontally ? oldTile.height:(oldTile.height / 2)
+        });
+        const nextTile = new Tile({
+            x: splitHorizontally ? (oldTile.x + (oldTile.width / 2)):oldTile.x,
+            y: splitHorizontally ? oldTile.y:(oldTile.y + (oldTile.height / 2)),
+            width: splitHorizontally ?( oldTile.width / 2):oldTile.width,
+            height: splitHorizontally ? oldTile.height:( oldTile.height / 2)
+        });
+        this._layout.tiles[index] = prevTile;
+        this._layout.tiles.push(nextTile);
+
+        const prevEditableTile = this._buildEditableTile(prevTile);
+        const nextEditableTile = this._buildEditableTile(nextTile);
+
+        const slider = this._buildSlider(splitHorizontally, splitHorizontally ? nextEditableTile.rect.x:nextEditableTile.rect.y);
+        this._sliders.push(slider);
+        slider.addTile(prevEditableTile);
+        slider.addTile(nextEditableTile);
+
+        if (splitHorizontally) {
+            editableTile.sliders[Side.TOP]?.addTile(prevEditableTile);
+            editableTile.sliders[Side.TOP]?.addTile(nextEditableTile);
+            editableTile.sliders[Side.BOTTOM]?.addTile(prevEditableTile);
+            editableTile.sliders[Side.BOTTOM]?.addTile(nextEditableTile);
+            editableTile.sliders[Side.LEFT]?.addTile(prevEditableTile);
+            editableTile.sliders[Side.RIGHT]?.addTile(nextEditableTile);
+        } else {
+            editableTile.sliders[Side.LEFT]?.addTile(prevEditableTile);
+            editableTile.sliders[Side.LEFT]?.addTile(nextEditableTile);
+            editableTile.sliders[Side.RIGHT]?.addTile(prevEditableTile);
+            editableTile.sliders[Side.RIGHT]?.addTile(nextEditableTile);
+            editableTile.sliders[Side.TOP]?.addTile(prevEditableTile);
+            editableTile.sliders[Side.BOTTOM]?.addTile(nextEditableTile);
+        }
+
+        editableTile.sliders.forEach(slider => slider?.removeTile(editableTile));
+        editableTile.destroy();
     }
 
     private _buildSlider(isHorizontal: boolean, coord: number) : Slider {
-        debug(`build slider at ${coord}`);
         return new Slider(
             this, 
             this._sliderSize * this._scaleFactor,
@@ -99,5 +155,10 @@ export class LayoutEditor extends St.Widget {
             coord,
             isHorizontal
         );
+    }
+
+    public destroy() {
+        this._signals.disconnect();
+        super.destroy();
     }
 }
