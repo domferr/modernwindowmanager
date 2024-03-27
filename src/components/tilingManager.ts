@@ -1,6 +1,6 @@
 import { Display, Rectangle, SizeChange, Window, GrabOp } from '@gi-types/meta10';
 import { logger } from "@/utils/shell";
-import { buildTileMargin, getScalingFactor, global, isPointInsideRect, Main } from "@/utils/ui";
+import { buildTileMargin, getScalingFactor, getStyleScalingFactor, global, isPointInsideRect, Main } from "@/utils/ui";
 import { TilingLayout } from "@/components/tilingLayout";
 import { Margin, ModifierType } from "@gi-types/clutter10";
 import { PRIORITY_DEFAULT_IDLE, Source, SOURCE_CONTINUE, SOURCE_REMOVE, timeout_add } from "@gi-types/glib2";
@@ -63,7 +63,7 @@ export class TilingManager {
         this._tilingLayout = new TilingLayout(layout, this._innerGaps, this._outerGaps, this._workArea);
         
         // build the snap assistant
-        this._snapAssist = new SnapAssist(global.window_group, this._workArea, this._scaleFactor);
+        this._snapAssist = new SnapAssist(global.window_group, this._workArea, this._scaleFactor, getStyleScalingFactor(monitor.index));
 
         // build the selection tile
         this._selectedTilesPreview = new SelectionTilePreview({ parent: global.window_group });

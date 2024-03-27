@@ -11,6 +11,7 @@ import Tile from "../layout/Tile";
 import Settings from "@/settings";
 import GlobalState from "@/globalState";
 import SignalHandling from "@/signalHandling";
+import { Main, getScalingFactor } from "@/utils/ui";
 
 export const SNAP_ASSIST_SIGNAL = 'snap-assist';
 export const SNAP_ASSIST_ANIMATION_TIME = 180;
@@ -46,7 +47,7 @@ export class SnapAssist extends St.BoxLayout {
     private _scaleFactor: number;
     private _bottomPadding: number;
 
-    constructor(parent: Actor, workArea: Rectangle, scaleFactor: number) {
+    constructor(parent: Actor, workArea: Rectangle, scaleFactor: number, styleScaleFactor: number) {
         super({
             name: 'snap_assist',
             x_align: ActorAlign.CENTER,
@@ -71,9 +72,7 @@ export class SnapAssist extends St.BoxLayout {
         if (parent) parent.add_child(this._container);
 
         // scale padding if it is not already scaled
-        this._bottomPadding = this.get_theme_node().get_padding(Side.BOTTOM);
-        //if (scaleFactor !== ThemeContext.get_for_stage(global.get_stage()).get_scale_factor()) 
-        //    this._bottomPadding *= scaleFactor;
+        this._bottomPadding = this.get_theme_node().get_padding(Side.BOTTOM) * styleScaleFactor;
         this.set_style(`
             padding: ${this._bottomPadding}px !important;
         `);

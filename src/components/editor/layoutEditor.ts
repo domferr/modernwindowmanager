@@ -17,7 +17,6 @@ const debug = logger("LayoutEditor");
 @registerGObjectClass
 export class LayoutEditor extends St.Widget {
     private readonly _signals: SignalHandling;
-    private readonly _sliderSize: number = 12;
 
     private _layout: Layout;
     private _containerRect: Rectangle;
@@ -30,7 +29,6 @@ export class LayoutEditor extends St.Widget {
         super({ style_class: "layout-editor" });
         global.window_group.add_child(this);
         this._signals = new SignalHandling();
-
         this._layout = layout;
         const workArea = Main.layoutManager.getWorkAreaForMonitor(monitor.index);
         this.set_position(workArea.x, workArea.y);
@@ -41,7 +39,10 @@ export class LayoutEditor extends St.Widget {
         this._sliders = [];
         this._containerRect = new Meta.Rectangle({x:0, y:0, width: workArea.width, height: workArea.height});
         
-        const previews = this._layout.tiles.map(tile => this._buildEditableTile(tile));
+        const previews = this._layout.tiles.map(tile => {
+            const rect = TileUtils.apply_props(tile, this._containerRect);
+            return this._buildEditableTile(tile, rect);
+        });
 
         const groupByX = new Map<number, Slider>();
         const groupByY = new Map<number, Slider>();
@@ -86,16 +87,20 @@ export class LayoutEditor extends St.Widget {
         });
     }
 
-    private _buildEditableTile(tile: Tile) : EditableTilePreview {
-        const rect = TileUtils.apply_props(tile, this._containerRect);
+    private _buildEditableTile(tile: Tile, rect: Rectangle) : EditableTilePreview {
         const gaps = buildTileMargin(rect, this._innerGaps, this._outerGaps, this._containerRect);
         const editableTile = new EditableTilePreview({ tile, containerRect: this._containerRect, parent: this, rect, gaps });
         editableTile.open();
-        this._signals.connect(editableTile, "clicked", () => this.onTileClick(editableTile));
+        this._signals.connect(editableTile, "clicked", (_, clicked_button: number) => {
+            // St.ButtonMask.ONE is left click. 3 is right click (but for some reason St.ButtonMask.THREE is equal to 4, so we cannot use it)
+            if (clicked_button === St.ButtonMask.ONE) this.splitTile(editableTile);
+            else if (clicked_button === 3) this.deleteTile(editableTile);
+        });
+        if (this._sliders.length > 0) this.set_child_below_sibling(editableTile, this._sliders[0]);
         return editableTile;
     }
 
-    private onTileClick(editableTile: EditableTilePreview): void {
+    private splitTile(editableTile: EditableTilePreview) {
         const oldTile = editableTile.tile;
         const index = this._layout.tiles.indexOf(oldTile);
         if (index < 0) return;
@@ -116,11 +121,19 @@ export class LayoutEditor extends St.Widget {
             width: splitHorizontally ?( oldTile.width / 2):oldTile.width,
             height: splitHorizontally ? oldTile.height:( oldTile.height / 2)
         });
+
+        const prevRect = TileUtils.apply_props(prevTile, this._containerRect);
+        const nextRect = TileUtils.apply_props(nextTile, this._containerRect);
+        if (prevRect.height < EditableTilePreview.MIN_TILE_SIZE ||
+            prevRect.width < EditableTilePreview.MIN_TILE_SIZE ||
+            nextRect.height < EditableTilePreview.MIN_TILE_SIZE ||
+            nextRect.width < EditableTilePreview.MIN_TILE_SIZE) return;
+        
         this._layout.tiles[index] = prevTile;
         this._layout.tiles.push(nextTile);
 
-        const prevEditableTile = this._buildEditableTile(prevTile);
-        const nextEditableTile = this._buildEditableTile(nextTile);
+        const prevEditableTile = this._buildEditableTile(prevTile, prevRect);
+        const nextEditableTile = this._buildEditableTile(nextTile, nextRect);
 
         const slider = this._buildSlider(splitHorizontally, splitHorizontally ? nextEditableTile.rect.x:nextEditableTile.rect.y);
         this._sliders.push(slider);
@@ -128,32 +141,43 @@ export class LayoutEditor extends St.Widget {
         slider.addTile(nextEditableTile);
 
         if (splitHorizontally) {
-            editableTile.sliders[Side.TOP]?.addTile(prevEditableTile);
-            editableTile.sliders[Side.TOP]?.addTile(nextEditableTile);
-            editableTile.sliders[Side.BOTTOM]?.addTile(prevEditableTile);
-            editableTile.sliders[Side.BOTTOM]?.addTile(nextEditableTile);
-            editableTile.sliders[Side.LEFT]?.addTile(prevEditableTile);
-            editableTile.sliders[Side.RIGHT]?.addTile(nextEditableTile);
+            editableTile.sliders[Side.TOP]?.onTileSplit(editableTile, [prevEditableTile, nextEditableTile]);
+            editableTile.sliders[Side.BOTTOM]?.onTileSplit(editableTile, [prevEditableTile, nextEditableTile]);
+            editableTile.sliders[Side.LEFT]?.onTileSplit(editableTile, [prevEditableTile]);
+            editableTile.sliders[Side.RIGHT]?.onTileSplit(editableTile, [nextEditableTile]);
         } else {
-            editableTile.sliders[Side.LEFT]?.addTile(prevEditableTile);
-            editableTile.sliders[Side.LEFT]?.addTile(nextEditableTile);
-            editableTile.sliders[Side.RIGHT]?.addTile(prevEditableTile);
-            editableTile.sliders[Side.RIGHT]?.addTile(nextEditableTile);
-            editableTile.sliders[Side.TOP]?.addTile(prevEditableTile);
-            editableTile.sliders[Side.BOTTOM]?.addTile(nextEditableTile);
+            editableTile.sliders[Side.LEFT]?.onTileSplit(editableTile, [prevEditableTile, nextEditableTile]);
+            editableTile.sliders[Side.RIGHT]?.onTileSplit(editableTile, [prevEditableTile, nextEditableTile]);
+            editableTile.sliders[Side.TOP]?.onTileSplit(editableTile, [prevEditableTile]);
+            editableTile.sliders[Side.BOTTOM]?.onTileSplit(editableTile, [nextEditableTile]);
         }
 
-        editableTile.sliders.forEach(slider => slider?.removeTile(editableTile));
         editableTile.destroy();
+    }
+
+    private deleteTile(editableTile: EditableTilePreview) {
+        for (const slider of editableTile.sliders) {
+            if (slider === null) continue;
+
+            const success = slider.deleteSlider(editableTile);
+            if (success) {
+                editableTile.sliders.forEach(otherSlider => otherSlider?.onTileDeleted(editableTile));
+
+                this._sliders = this._sliders.filter(sl => sl !== slider);
+                slider.destroy();
+                editableTile.destroy();
+                break;
+            }
+        }
     }
 
     private _buildSlider(isHorizontal: boolean, coord: number) : Slider {
         return new Slider(
-            this, 
-            this._sliderSize * this._scaleFactor,
+            this,
             coord,
             coord,
-            isHorizontal
+            isHorizontal,
+            this._scaleFactor
         );
     }
 

@@ -12,6 +12,8 @@ const debug = logger("EditableTilePreview");
 
 @registerGObjectClass
 export class EditableTilePreview extends TilePreview {
+    public static MIN_TILE_SIZE: number = 140;
+
     private readonly _btn: St.Button;
     private readonly _tile: Tile;
     private readonly _containerRect: Rectangle;
@@ -38,23 +40,9 @@ export class EditableTilePreview extends TilePreview {
         });
         this.add_child(this._btn);
         this._btn.set_size(this.innerWidth, this.innerHeight);
+        this._btn.set_button_mask(St.ButtonMask.ONE | St.ButtonMask.THREE);
         this._updateLabelText();
     }
-
-    /*vfunc_button_press_event(event: Clutter.ButtonEvent): boolean {
-        debug("vfunc_button_press_event");
-        return Clutter.EVENT_PROPAGATE;
-    }
-
-    vfunc_event(event: Clutter.Event) {
-        if ((event.type() === Clutter.EventType.TOUCH_BEGIN ||
-             event.type() === Clutter.EventType.BUTTON_PRESS)) {
-             //this._btn.emit("clicked", 1);
-             debug(`vfunc_evemt ${event.get_button()} -> ${JSON.stringify(event)}`);
-        }
-
-        return Clutter.EVENT_PROPAGATE;
-    }*/
 
     public get tile() : Tile {
         return this._tile;

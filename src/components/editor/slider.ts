@@ -1,15 +1,17 @@
 import { registerGObjectClass } from "@/utils/gjs";
-import Clutter, { ActorAlign } from "@gi-types/clutter10";
+import Clutter from "@gi-types/clutter10";
 import St, { Side } from "@gi-types/st1";
 import { EditableTilePreview } from "./editableTilePreview";
-import { logger } from "@/utils/shell";
-import { Rectangle } from "@gi-types/meta10";
+import { getCurrentExtension, logger } from "@/utils/shell";
+import Meta, { Rectangle } from "@gi-types/meta10";
+import Gio from "@gi-types/gio2";
+import Settings from "@/settings";
 
 const debug = logger("Slider");
 
 @registerGObjectClass
 export class Slider extends St.Button {
-    private readonly _minTileSize: number = 140;
+    private readonly _sliderSize: number = 48;
 
     private _dragging: boolean;
     private _grab: any;
@@ -20,25 +22,64 @@ export class Slider extends St.Button {
     private _nextTiles: EditableTilePreview[];
     private _minTileCoord: number;
     private _maxTileCoord: number;
+    private _scalingFactor: number;
 
-    constructor(parent: Clutter.Actor, size: number, x: number, y: number, horizontal: boolean) {
+    constructor(parent: Clutter.Actor, x: number, y: number, horizontal: boolean, scaleFactor: number) {
         super({ 
-            style_class: "icon-button layout-editor-slider",
+            style_class: "layout-editor-slider", //icon-button
             can_focus: true,
-            x_expand: false
+            x_expand: false,
+            track_hover: true,
         });
         parent.add_child(this);
         this._horizontalDir = horizontal;
+        this._scalingFactor = scaleFactor;
+        this.set_width(this.desiredWidth);
+        this.set_height(this.desiredHeight);
 
         this._previousTiles = [];
         this._nextTiles = [];
         this._minTileCoord = Number.MAX_VALUE;
         this._maxTileCoord = Number.MIN_VALUE;
 
-        this.child = new St.Icon({ icon_name: "list-add-symbolic", icon_size: size, x_expand: false });
+        /*const icon_name = this._horizontalDir ? "horizontal_slider_icon":"vertical_slider_icon";
+        this.child = new St.Icon({
+            gicon: Gio.icon_new_for_string(`${getCurrentExtension().path}/icons/${icon_name}.svg`),
+            x_expand: false,
+            height: 160,
+            icon_size: 160
+        });*/
         this._dragging = false;
         this._lastEventCoord = null;
         this.set_position(Math.round(x - (this.width / 2)), Math.round(y - (this.height / 2)));
+
+        this.connect('notify::hover', () => 
+            global.display.set_cursor(this.preferredCursor)
+        );
+    }
+
+    public canDelete(tile: EditableTilePreview) : boolean {
+        if (this._nextTiles.length === 1 && this._nextTiles[0] === tile) {
+            return this._previousTiles.length === 0;
+        }
+        if (this._previousTiles.length === 1 && this._previousTiles[0] === tile) {
+            return this._nextTiles.length === 0;
+        }
+        return false;
+    }
+
+    private get desiredWidth() : number {
+        return (this._horizontalDir ? (Settings.get_inner_gaps(1).top - 4):this._sliderSize) * this._scalingFactor;
+        //return this._horizontalDir ? Settings.get_inner_gaps(1).top - 4:(this._maxTileCoord - this._minTileCoord < (EditableTilePreview.MIN_TILE_SIZE*2) ? EditableTilePreview.MIN_TILE_SIZE/3:100);
+    }
+
+    private get desiredHeight() : number {
+        return (this._horizontalDir ? this._sliderSize:(Settings.get_inner_gaps(1).top - 4)) * this._scalingFactor;
+        //return this._horizontalDir ? (this._maxTileCoord - this._minTileCoord < (EditableTilePreview.MIN_TILE_SIZE*2) ? EditableTilePreview.MIN_TILE_SIZE/3:100):Settings.get_inner_gaps(1).top - 4;
+    }
+
+    private get preferredCursor() : Meta.Cursor {
+        return this.hover ? (this._horizontalDir ? Meta.Cursor.WEST_RESIZE:Meta.Cursor.NORTH_RESIZE):Meta.Cursor.DEFAULT;
     }
 
     public get horizontal() : boolean {
@@ -59,20 +100,62 @@ export class Slider extends St.Button {
         this._updatePosition();
     }
 
-    public removeTile(tileToRemove: EditableTilePreview) {
-        const isNext = this._horizontalDir ? this.x <= tileToRemove.rect.x:this.y <= tileToRemove.rect.y;
-        const oldArray = isNext ? this._nextTiles:this._previousTiles;
-        if (isNext) this._nextTiles = [];
-        else this._previousTiles = [];
-
-        this._minTileCoord = Number.MAX_VALUE;
-        this._maxTileCoord = Number.MIN_VALUE;
-
-        oldArray
-            .filter(tile => tile !== tileToRemove)
-            .forEach(tile => this.addTile(tile));
+    public onTileDeleted(tile: EditableTilePreview) {
+        const isNext = this._horizontalDir ? this.x <= tile.rect.x:this.y <= tile.rect.y;
+        
+        if (isNext) this._nextTiles = this._nextTiles.filter(t => t !== tile);
+        else this._previousTiles = this._previousTiles.filter(t => t !== tile);
     }
 
+    public onTileSplit(tileToRemove: EditableTilePreview, newTiles: EditableTilePreview[]) {
+        if (newTiles.length === 0) return;
+
+        const isNext = this._horizontalDir ? this.x <= tileToRemove.rect.x:this.y <= tileToRemove.rect.y;
+        const array = isNext ? this._nextTiles:this._previousTiles;
+        const index = array.indexOf(tileToRemove);
+        if (index < 0) return;
+
+        const side = this._horizontalDir ? (isNext ? Side.LEFT:Side.RIGHT):(isNext ? Side.TOP:Side.BOTTOM);
+        array[index] = newTiles[0];
+        newTiles[0].addSlider(this, side);
+        for (let i = 1; i < newTiles.length; i++) {
+            const tile = newTiles[i];
+            array.push(tile);
+            tile.addSlider(this, side);
+        }
+    }
+
+    public deleteSlider(tile: EditableTilePreview): boolean {
+        const isNext = this._horizontalDir ? this.x <= tile.rect.x:this.y <= tile.rect.y;
+        const array = isNext ? this._nextTiles:this._previousTiles;
+
+        if (array.length > 1 || array[0] !== tile) return false;
+        
+        array.pop();
+
+        const extensionRect = new Rectangle({
+            width: this._horizontalDir ? tile.rect.width:0,
+            height: this._horizontalDir ? 0:tile.rect.height
+        });
+
+        const otherSliderSide = this._horizontalDir ? (isNext ? Side.RIGHT:Side.LEFT):(isNext ? Side.BOTTOM:Side.TOP);
+        (isNext ? this._previousTiles:this._nextTiles).forEach((tileToExtend) => {
+            tileToExtend.updateSize(
+                tileToExtend.rect.width + extensionRect.width,
+                tileToExtend.rect.height + extensionRect.height
+            );
+            if (!isNext) {
+                tileToExtend.updatePosition(
+                    tile.rect.x,
+                    tile.rect.y
+                );
+            }
+            tile.sliders[otherSliderSide]?.addTile(tileToExtend);
+        });
+
+        return true;
+    }
+    
     vfunc_button_press_event(event: Clutter.ButtonEvent) {
         return this._startDragging(event);
     }
@@ -96,6 +179,7 @@ export class Slider extends St.Button {
             return Clutter.EVENT_PROPAGATE;
 
         this._dragging = true;
+        global.display.set_cursor(this.preferredCursor);
 
         this._grab = global.stage.grab(this);
         
@@ -104,6 +188,7 @@ export class Slider extends St.Button {
     }
 
     private _endDragging() {
+        global.display.set_cursor(this.preferredCursor);
         if (this._dragging) {
             if (this._grab) {
                 this._grab.dismiss();
@@ -134,14 +219,14 @@ export class Slider extends St.Button {
             const _previousTileNewSize: { width: number, height: number }[] = [];
             for (const prevTile of this._previousTiles) {
                 const newSize = {width: prevTile.rect.width + movement.x, height: prevTile.rect.height + movement.y};
-                if (newSize.width < this._minTileSize || newSize.height < this._minTileSize) return;
+                if (newSize.width < EditableTilePreview.MIN_TILE_SIZE || newSize.height < EditableTilePreview.MIN_TILE_SIZE) return;
 
                 _previousTileNewSize.push(newSize);
             }
             const _nextTileNewSize: { width: number, height: number }[] = [];
             for (const nextTile of this._nextTiles) {
                 const newSize = {width: nextTile.rect.width - movement.x, height: nextTile.rect.height - movement.y};
-                if (newSize.width < this._minTileSize || newSize.height < this._minTileSize) return;
+                if (newSize.width < EditableTilePreview.MIN_TILE_SIZE || newSize.height < EditableTilePreview.MIN_TILE_SIZE) return;
 
                 _nextTileNewSize.push(newSize);
             }
@@ -183,6 +268,8 @@ export class Slider extends St.Button {
     }
 
     private _updatePosition() {
+        this.set_width(this.desiredWidth);
+        this.set_height(this.desiredHeight);
         const newCoord = (this._minTileCoord + this._maxTileCoord) / 2;
         if (this._horizontalDir) this.set_y(Math.round(newCoord - (this.height / 2)));
         else this.set_x(Math.round(newCoord - (this.width / 2)));
