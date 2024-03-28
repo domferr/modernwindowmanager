@@ -102,9 +102,11 @@ export class Slider extends St.Button {
 
     public onTileDeleted(tile: EditableTilePreview) {
         const isNext = this._horizontalDir ? this.x <= tile.rect.x:this.y <= tile.rect.y;
-        
-        if (isNext) this._nextTiles = this._nextTiles.filter(t => t !== tile);
-        else this._previousTiles = this._previousTiles.filter(t => t !== tile);
+        const array = isNext ? this._nextTiles:this._previousTiles;
+        const index = array.indexOf(tile, 0);
+        if (index >= 0) {
+            array.splice(index, 1);
+        }
     }
 
     public onTileSplit(tileToRemove: EditableTilePreview, newTiles: EditableTilePreview[]) {
@@ -138,7 +140,10 @@ export class Slider extends St.Button {
             height: this._horizontalDir ? 0:tile.rect.height
         });
 
-        const otherSliderSide = this._horizontalDir ? (isNext ? Side.RIGHT:Side.LEFT):(isNext ? Side.BOTTOM:Side.TOP);
+        const affectedSliders = new Set<Slider>();
+        const commonSliders = new Set<Slider>();
+        const oppositeSide = this._horizontalDir ? (isNext ? Side.RIGHT:Side.LEFT):(isNext ? Side.BOTTOM:Side.TOP);
+        // extend the tiles on the opposite side of the tile to be deleted
         (isNext ? this._previousTiles:this._nextTiles).forEach((tileToExtend) => {
             tileToExtend.updateSize(
                 tileToExtend.rect.width + extensionRect.width,
@@ -146,12 +151,20 @@ export class Slider extends St.Button {
             );
             if (!isNext) {
                 tileToExtend.updatePosition(
-                    tile.rect.x,
-                    tile.rect.y
+                    tileToExtend.rect.x - extensionRect.width,
+                    tileToExtend.rect.y - extensionRect.height
                 );
             }
-            tile.sliders[otherSliderSide]?.addTile(tileToExtend);
+            tileToExtend.sliders.forEach(sl => {
+                if (sl === null || sl === this || sl.horizontal === this._horizontalDir) return;
+                if (affectedSliders.has(sl)) commonSliders.add(sl);
+                affectedSliders.add(sl);
+            });
+            tileToExtend.sliders[oppositeSide] = null;
+            tile.sliders[oppositeSide]?.addTile(tileToExtend);
         });
+        const movement = this._horizontalDir ? extensionRect.width:extensionRect.height;
+        commonSliders.forEach(slider => slider._onTileSizeChanged(isNext ? movement:-movement));
 
         return true;
     }

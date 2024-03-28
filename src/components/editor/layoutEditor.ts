@@ -16,8 +16,6 @@ const debug = logger("LayoutEditor");
 
 @registerGObjectClass
 export class LayoutEditor extends St.Widget {
-    private readonly _signals: SignalHandling;
-
     private _layout: Layout;
     private _containerRect: Rectangle;
     private _sliders: Slider[];
@@ -28,7 +26,6 @@ export class LayoutEditor extends St.Widget {
     constructor(layout: Layout, monitor: Monitor) {
         super({ style_class: "layout-editor" });
         global.window_group.add_child(this);
-        this._signals = new SignalHandling();
         this._layout = layout;
         const workArea = Main.layoutManager.getWorkAreaForMonitor(monitor.index);
         this.set_position(workArea.x, workArea.y);
@@ -91,7 +88,7 @@ export class LayoutEditor extends St.Widget {
         const gaps = buildTileMargin(rect, this._innerGaps, this._outerGaps, this._containerRect);
         const editableTile = new EditableTilePreview({ tile, containerRect: this._containerRect, parent: this, rect, gaps });
         editableTile.open();
-        this._signals.connect(editableTile, "clicked", (_, clicked_button: number) => {
+        editableTile.connect("clicked", (_, clicked_button: number) => {
             // St.ButtonMask.ONE is left click. 3 is right click (but for some reason St.ButtonMask.THREE is equal to 4, so we cannot use it)
             if (clicked_button === St.ButtonMask.ONE) this.splitTile(editableTile);
             else if (clicked_button === 3) this.deleteTile(editableTile);
@@ -162,11 +159,11 @@ export class LayoutEditor extends St.Widget {
             const success = slider.deleteSlider(editableTile);
             if (success) {
                 editableTile.sliders.forEach(otherSlider => otherSlider?.onTileDeleted(editableTile));
-
+                this._layout.tiles = this._layout.tiles.filter(tile => tile !== editableTile.tile);
                 this._sliders = this._sliders.filter(sl => sl !== slider);
                 slider.destroy();
                 editableTile.destroy();
-                break;
+                return;
             }
         }
     }
@@ -182,7 +179,8 @@ export class LayoutEditor extends St.Widget {
     }
 
     public destroy() {
-        this._signals.disconnect();
+        this._sliders.forEach(slider => slider.destroy());
+        this._sliders = [];
         super.destroy();
     }
 }

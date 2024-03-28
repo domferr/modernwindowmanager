@@ -40,6 +40,7 @@ export class EditableTilePreview extends TilePreview {
         });
         this.add_child(this._btn);
         this._btn.set_size(this.innerWidth, this.innerHeight);
+        // handle both left and right clicks
         this._btn.set_button_mask(St.ButtonMask.ONE | St.ButtonMask.THREE);
         this._updateLabelText();
     }
