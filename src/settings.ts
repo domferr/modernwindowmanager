@@ -105,8 +105,24 @@ export default class Settings {
         return this._settings?.get_boolean(Settings.SETTING_RESIZE_COMPLEMENTING_WINDOWS) || false;
     }
 
+    static get_tiling_system_activation_key() : string {
+        return this._settings?.get_strv(this.SETTING_TILING_SYSTEM_ACTIVATION_KEY)[0] || TilingSystemActivationKey.ALT;
+    }
+
+    static get_span_multiple_tiles_activation_key() : string {
+        return this._settings?.get_strv(this.SETTING_SPAN_MULTIPLE_TILES_ACTIVATION_KEY)[0] || TilingSystemActivationKey.CTRL;
+    }
+
     static set_last_version_installed(version: string) {
         this._settings?.set_string(this.SETTING_LAST_VERSION_NAME_INSTALLED, version);
+    }
+
+    static set_tiling_system_activation_key(key: string) {
+        this._settings?.set_strv(this.SETTING_TILING_SYSTEM_ACTIVATION_KEY, [key]);
+    }
+
+    static set_span_multiple_tiles_activation_key(key: string) {
+        this._settings?.set_strv(this.SETTING_SPAN_MULTIPLE_TILES_ACTIVATION_KEY, [key]);
     }
 
     static reset_layouts_json() {

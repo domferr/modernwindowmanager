@@ -96,7 +96,8 @@ export default class TilingShellExtensionPreferences extends ExtensionPreference
             "Enable Tiling System",
             "Hold the activation key while moving a window to tile it",
             this._buildShortcutButton(
-                Settings.SETTING_TILING_SYSTEM_ACTIVATION_KEY
+                Settings.get_tiling_system_activation_key(),
+                (newVal: TilingSystemActivationKey) => Settings.set_tiling_system_activation_key(newVal)
             )
         );
         behaviourGroup.add(enableTilingSystemRow);
@@ -106,7 +107,8 @@ export default class TilingShellExtensionPreferences extends ExtensionPreference
             "Span multiple tiles",
             "Hold the activation key to span multiple tiles",
             this._buildShortcutButton(
-                Settings.SETTING_SPAN_MULTIPLE_TILES_ACTIVATION_KEY
+                Settings.get_span_multiple_tiles_activation_key(),
+                (newVal: TilingSystemActivationKey) => Settings.set_span_multiple_tiles_activation_key(newVal)
             )
         );
         behaviourGroup.add(spanMultipleTilesRow);
@@ -249,15 +251,18 @@ export default class TilingShellExtensionPreferences extends ExtensionPreference
         }
     }
 
-    _buildShortcutButton(settingsKey: string, styleClass?: string) {
+    _buildShortcutButton(value: string, onSelected: (v: TilingSystemActivationKey) => void, styleClass?: string) {
         const options = new Gtk.StringList();
         tilingSystemActivationKeys.forEach(k => options.append(k));
+        const selectedIndex = tilingSystemActivationKeys.findIndex(v => v === value);
         const dropdown = new Gtk.DropDown({
             model: options,
-            selected: 0//this._settings.get_enum(this._settingsKey.NIGHT_LIGHT)
+            selected: selectedIndex === -1 ? 0:selectedIndex
         });
         dropdown.connect("notify::selected-item", (_: Gtk.DropDown) => {
-            debug(`selected ${tilingSystemActivationKeys[dropdown.get_selected()]}`);
+            const selected = tilingSystemActivationKeys[dropdown.get_selected()];
+            debug(`selected ${selected}`);
+            onSelected(selected);
         });
         if (styleClass) dropdown.add_css_class(styleClass);
         dropdown.set_vexpand(false);
