@@ -206,6 +206,7 @@ export class TilingManager {
 
         const [x, y, modifier] = global.get_pointer();
         const currPointerPos = { x, y };
+        
         const isAltPressed = (modifier & Clutter.ModifierType.MOD1_MASK) != 0;
         const isCtrlPressed = (modifier & Clutter.ModifierType.CONTROL_MASK) != 0;
         const allowSpanMultipleTiles = Settings.get_span_multiple_tiles() && isAltPressed;

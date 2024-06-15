@@ -7,13 +7,15 @@ export default class Settings {
     static _settings: Gio.Settings | null;
     static _is_initialized: boolean = false;
 
-    static SETTING_LAST_VERSION_INSTALLED = 'last-version-installed';
+    static SETTING_LAST_VERSION_NAME_INSTALLED = 'last-version-name-installed';
     static SETTING_TILING_SYSTEM = 'enable-tiling-system';
+    static SETTING_TILING_SYSTEM_ACTIVATION_KEY = 'tiling-system-activation-key';
     static SETTING_SNAP_ASSIST = 'enable-snap-assist';
     static SETTING_SHOW_INDICATOR = 'show-indicator';
     static SETTING_INNER_GAPS = 'inner-gaps';
     static SETTING_OUTER_GAPS = 'outer-gaps';
     static SETTING_SPAN_MULTIPLE_TILES = 'enable-span-multiple-tiles';
+    static SETTING_SPAN_MULTIPLE_TILES_ACTIVATION_KEY = 'span-multiple-tiles-activation-key';
     static SETTING_LAYOUTS_JSON = 'layouts-json';
     static SETTING_SELECTED_LAYOUTS = 'selected-layouts';
     static SETTING_RESTORE_WINDOW_ORIGINAL_SIZE = 'restore-window-original-size';
@@ -38,8 +40,8 @@ export default class Settings {
         this._settings?.bind(key, object, property, Gio.SettingsBindFlags.DEFAULT);
     }
 
-    static get_last_version_installed() : number {
-        return this._settings?.get_uint(this.SETTING_LAST_VERSION_INSTALLED) || -1;
+    static get_last_version_installed() : string {
+        return this._settings?.get_string(this.SETTING_LAST_VERSION_NAME_INSTALLED) || "0";
     }
 
     static get_tiling_system_enabled() : boolean {
@@ -103,8 +105,8 @@ export default class Settings {
         return this._settings?.get_boolean(Settings.SETTING_RESIZE_COMPLEMENTING_WINDOWS) || false;
     }
 
-    static set_last_version_installed(version: number) {
-        this._settings?.set_uint(this.SETTING_LAST_VERSION_INSTALLED, version);
+    static set_last_version_installed(version: string) {
+        this._settings?.set_string(this.SETTING_LAST_VERSION_NAME_INSTALLED, version);
     }
 
     static reset_layouts_json() {
@@ -149,3 +151,14 @@ export default class Settings {
     }
 }
 
+export enum TilingSystemActivationKey {
+    CTRL = "Ctrl",
+    ALT = "Alt",
+    SUPER = "Super"
+}
+
+export const tilingSystemActivationKeys = [
+    TilingSystemActivationKey.CTRL,
+    TilingSystemActivationKey.ALT,
+    TilingSystemActivationKey.SUPER
+];

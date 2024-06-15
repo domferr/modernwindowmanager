@@ -1,11 +1,13 @@
 import Gtk from "gi://Gtk"; // Starting from GNOME 40, the preferences dialog uses GTK4
 import Adw from "gi://Adw";
 import Gio from "gi://Gio";
-import Settings from "./settings";
+import Gdk from "gi://Gdk";
+import GObject from "gi://GObject";
+import Settings, { TilingSystemActivationKey, tilingSystemActivationKeys } from "./settings";
 import { logger } from "./utils/shell";
 import { ExtensionPreferences } from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
+
 /*import Layout from "@/components/layout/Layout";
-import GObject from "gi://GObject";
 import Cairo from "@gi-types/cairo1";*/
 
 const debug = logger("prefs");
@@ -30,7 +32,7 @@ function buildPrefsWidget(): Gtk.Widget {
 
 export default class TilingShellExtensionPreferences extends ExtensionPreferences {
     private readonly NAME = "Tiling Shell";
-
+    
     /**
      * This function is called when the preferences window is first created to fill
      * the `Adw.PreferencesWindow`.
@@ -82,27 +84,33 @@ export default class TilingShellExtensionPreferences extends ExtensionPreference
         });
         prefsPage.add(behaviourGroup);
 
-        const restoreToOriginalSizeRow = this._buildSwitchRow(
-            Settings.SETTING_RESTORE_WINDOW_ORIGINAL_SIZE,
-            "Restore window size",
-            "Whether to restore the windows to their original size when untiled"
+        const snapAssistRow = this._buildSwitchRow(
+            Settings.SETTING_SNAP_ASSIST,
+            "Enable Snap Assistant",
+            "Move the window on top of the screen to snap assist it"
         );
-        behaviourGroup.add(restoreToOriginalSizeRow);
+        behaviourGroup.add(snapAssistRow);
 
-        const pressCtrlRow = this._buildSwitchRow(
+        const enableTilingSystemRow = this._buildSwitchRow(
             Settings.SETTING_TILING_SYSTEM,
-            "Enable tiling system",
-            "Hold CTRL while moving a window to tile it"
+            "Enable Tiling System",
+            "Hold the activation key while moving a window to tile it",
+            this._buildShortcutButton(
+                Settings.SETTING_TILING_SYSTEM_ACTIVATION_KEY
+            )
         );
-        behaviourGroup.add(pressCtrlRow);
+        behaviourGroup.add(enableTilingSystemRow);
 
-        const pressAltRow = this._buildSwitchRow(
+        const spanMultipleTilesRow = this._buildSwitchRow(
             Settings.SETTING_SPAN_MULTIPLE_TILES,
             "Span multiple tiles",
-            "Hold ALT to span multiple tiles"
+            "Hold the activation key to span multiple tiles",
+            this._buildShortcutButton(
+                Settings.SETTING_SPAN_MULTIPLE_TILES_ACTIVATION_KEY
+            )
         );
-        behaviourGroup.add(pressAltRow);
-
+        behaviourGroup.add(spanMultipleTilesRow);
+        
         const resizeComplementingRow = this._buildSwitchRow(
             Settings.SETTING_RESIZE_COMPLEMENTING_WINDOWS,
             "Enable auto-resize of the complementing tiled windows",
@@ -110,12 +118,12 @@ export default class TilingShellExtensionPreferences extends ExtensionPreference
         );
         behaviourGroup.add(resizeComplementingRow);
 
-        const snapAssistRow = this._buildSwitchRow(
-            Settings.SETTING_SNAP_ASSIST,
-            "Enable snap assist",
-            "Move the window on top of the screen to snap assist it"
+        const restoreToOriginalSizeRow = this._buildSwitchRow(
+            Settings.SETTING_RESTORE_WINDOW_ORIGINAL_SIZE,
+            "Restore window size",
+            "Whether to restore the windows to their original size when untiled"
         );
-        behaviourGroup.add(snapAssistRow);
+        behaviourGroup.add(restoreToOriginalSizeRow);
 
         // Layouts section
         const layoutsGroup = new Adw.PreferencesGroup({
@@ -124,7 +132,7 @@ export default class TilingShellExtensionPreferences extends ExtensionPreference
         });
         prefsPage.add(layoutsGroup);
 
-        const editLayoutsBtn =this._buildButtonRow(
+        const editLayoutsBtn = this._buildButtonRow(
             "Edit layouts", 
             "Edit layouts",
             "Open the layouts editor",
@@ -145,20 +153,41 @@ export default class TilingShellExtensionPreferences extends ExtensionPreference
             "destructive-action"
         );
         layoutsGroup.add(resetBtn);
+        
+        const footerGroup = new Adw.PreferencesGroup();
+        prefsPage.add(footerGroup);
+
+        // footer
+        footerGroup.add(new Gtk.Label({
+            label: "Have issues, you want to suggest a new feature or contribute?",
+            margin_bottom: 4
+        }));
+        footerGroup.add(new Gtk.Label({
+            label: "Open a new issue on <a href=\"https://github.com/domferr/tilingshell\">GitHub</a>!",
+            useMarkup: true,
+            margin_bottom: 16
+        }));
 
         window.searchEnabled = true;
         window.connect('close-request', () => {
             Settings.destroy();
         });
+        
+        if (this.metadata["version-name"]) {
+            footerGroup.add(new Gtk.Label({
+                label: `· Tiling Shell v${this.metadata["version-name"]} ·`,
+            }));
+        }
     }
 
-    _buildSwitchRow(settingsKey: string, title: string, subtitle: string): Adw.ActionRow {
+    _buildSwitchRow(settingsKey: string, title: string, subtitle: string, suffix?: Gtk.Widget): Adw.ActionRow {
         const gtkSwitch = new Gtk.Switch({ vexpand: false, valign: Gtk.Align.CENTER });
         const adwRow = new Adw.ActionRow({
             title: title,
             subtitle: subtitle,
             activatableWidget: gtkSwitch
         });
+        if (suffix) adwRow.add_suffix(suffix);
         adwRow.add_suffix(gtkSwitch);
         //@ts-ignore
         Settings.bind(settingsKey, gtkSwitch, 'active');
@@ -219,9 +248,167 @@ export default class TilingShellExtensionPreferences extends ExtensionPreference
             console.error(e);
         }
     }
+
+    _buildShortcutButton(settingsKey: string, styleClass?: string) {
+        const options = new Gtk.StringList();
+        tilingSystemActivationKeys.forEach(k => options.append(k));
+        const dropdown = new Gtk.DropDown({
+            model: options,
+            selected: 0//this._settings.get_enum(this._settingsKey.NIGHT_LIGHT)
+        });
+        dropdown.connect("notify::selected-item", (_: Gtk.DropDown) => {
+            debug(`selected ${tilingSystemActivationKeys[dropdown.get_selected()]}`);
+        });
+        if (styleClass) dropdown.add_css_class(styleClass);
+        dropdown.set_vexpand(false);
+        dropdown.set_valign(Gtk.Align.CENTER);
+        return dropdown;
+    }
 }
 
-//export default { init, fillPreferencesWindow };
+//@ts-ignore
+/*const genParam = (type: string, name: string, ...dflt: any[]) => GObject.ParamSpec[type](name, name, name, GObject.ParamFlags.READWRITE, ...dflt);
+
+const ShortcutSettingButton = class extends Gtk.Button {
+    
+    static {
+        GObject.registerClass({
+            Properties: {
+                shortcut: genParam('string', 'shortcut', ''),
+            },
+            Signals: {
+                changed: { param_types: [GObject.TYPE_STRING] },
+            },
+        }, this);
+    }
+
+    private _editor: Adw.Window | null;
+    private _label: Gtk.ShortcutLabel;
+
+    constructor() {
+        super({
+            halign: Gtk.Align.CENTER,
+            hexpand: false,
+            vexpand: false,
+            has_frame: false
+        });
+
+        this._editor = null;
+        this._label = new Gtk.ShortcutLabel({
+            disabled_text: 'New accelerator…',
+            valign: Gtk.Align.CENTER,
+            hexpand: false,
+            vexpand: false
+        });
+
+        this.set_child(this._label);
+
+        // Bind signals
+        this.connect('clicked', this._onActivated.bind(this));
+        this.bind_property('shortcut', this._label, 'accelerator', GObject.BindingFlags.DEFAULT);
+        this.shortcut = '';
+    }
+
+    isAcceleratorSet() {
+        if(this._label.get_accelerator()) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    _onActivated(widget: Gtk.Widget) {
+        let ctl = new Gtk.EventControllerKey();
+
+        let content = new Adw.StatusPage({
+            title: 'New accelerator…',
+            //description: this._description,
+            icon_name: 'preferences-desktop-keyboard-shortcuts-symbolic',
+        });
+
+        this._editor = new Adw.Window({
+            modal: true,
+            hide_on_close: true,
+            //@ts-ignore
+            transient_for: widget.get_root(),
+            width_request: 480,
+            height_request: 320,
+            content,
+        });
+
+        this._editor.add_controller(ctl);
+        ctl.connect('key-pressed', this._onKeyPressed.bind(this));
+        this._editor.present();
+    }
+
+    _onKeyPressed(_widget: Gtk.Widget, keyval: number, keycode: number, state: number) {
+        let mask = state & Gtk.accelerator_get_default_mod_mask();
+        mask &= ~Gdk.ModifierType.LOCK_MASK;
+
+        if (!mask && keyval === Gdk.KEY_Escape) {
+            this._editor?.close();
+            return Gdk.EVENT_STOP;
+        }
+
+        if (!this.isValidBinding(mask, keycode, keyval) || !this.isValidAccel(mask, keyval))
+            return Gdk.EVENT_STOP;
+
+        if (!keyval && !keycode) {
+            this._editor?.destroy();
+            return Gdk.EVENT_STOP;
+        } else {
+            this.shortcut = Gtk.accelerator_name_with_keycode(null, keyval, keycode, mask);
+        }
+
+        this.emit('changed', this.shortcut);
+        this._editor?.destroy();
+        return Gdk.EVENT_STOP;
+    }
+
+    // Functions from https://gitlab.gnome.org/GNOME/gnome-control-center/-/blob/main/panels/keyboard/keyboard-shortcuts.c
+
+    keyvalIsForbidden(keyval: number) {
+        return [
+            // Navigation keys
+            Gdk.KEY_Home,
+            Gdk.KEY_Left,
+            Gdk.KEY_Up,
+            Gdk.KEY_Right,
+            Gdk.KEY_Down,
+            Gdk.KEY_Page_Up,
+            Gdk.KEY_Page_Down,
+            Gdk.KEY_End,
+            Gdk.KEY_Tab,
+
+            // Return
+            Gdk.KEY_KP_Enter,
+            Gdk.KEY_Return,
+
+            Gdk.KEY_Mode_switch,
+        ].includes(keyval);
+    }
+
+    isValidBinding(mask: number, keycode: number, keyval: number) {
+        //@ts-ignore
+        return !(mask === 0 || mask === Gdk.SHIFT_MASK && keycode !== 0 &&
+                 ((keyval >= Gdk.KEY_a && keyval <= Gdk.KEY_z) ||
+                     (keyval >= Gdk.KEY_A && keyval <= Gdk.KEY_Z) ||
+                     (keyval >= Gdk.KEY_0 && keyval <= Gdk.KEY_9) ||
+                     (keyval >= Gdk.KEY_kana_fullstop && keyval <= Gdk.KEY_semivoicedsound) ||
+                     (keyval >= Gdk.KEY_Arabic_comma && keyval <= Gdk.KEY_Arabic_sukun) ||
+                     (keyval >= Gdk.KEY_Serbian_dje && keyval <= Gdk.KEY_Cyrillic_HARDSIGN) ||
+                     (keyval >= Gdk.KEY_Greek_ALPHAaccent && keyval <= Gdk.KEY_Greek_omega) ||
+                     (keyval >= Gdk.KEY_hebrew_doublelowline && keyval <= Gdk.KEY_hebrew_taf) ||
+                     (keyval >= Gdk.KEY_Thai_kokai && keyval <= Gdk.KEY_Thai_lekkao) ||
+                     (keyval >= Gdk.KEY_Hangul_Kiyeog && keyval <= Gdk.KEY_Hangul_J_YeorinHieuh) ||
+                     (keyval === Gdk.KEY_space && mask === 0) || this.keyvalIsForbidden(keyval))
+        );
+    }
+
+    isValidAccel(mask: number, keyval: number) {
+        return Gtk.accelerator_valid(keyval, mask) || (keyval === Gdk.KEY_Tab && mask !== 0);
+    }
+};*/
 
 /*class LayoutWidget extends Gtk.DrawingArea {
     private _layout: Layout;
