@@ -1,11 +1,11 @@
 import Gtk from "gi://Gtk"; // Starting from GNOME 40, the preferences dialog uses GTK4
 import Adw from "gi://Adw";
 import Gio from "gi://Gio";
-import Gdk from "gi://Gdk";
-import GObject from "gi://GObject";
+import GLib from "gi://GLib";
 import Settings, { ActivationKey, activationKeys } from "./settings";
 import { logger } from "./utils/shell";
 import { ExtensionPreferences } from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
+import Layout from "@components/layout/Layout";
 
 /*import Layout from "@/components/layout/Layout";
 import Cairo from "@gi-types/cairo1";*/
@@ -142,7 +142,107 @@ export default class TilingShellExtensionPreferences extends ExtensionPreference
         );
         layoutsGroup.add(editLayoutsBtn);
 
-        const resetBtn =this._buildButtonRow(
+        const exportLayoutsBtn = this._buildButtonRow(
+            "Export layouts", 
+            "Export layouts",
+            "Export layouts to a file",
+            () => {
+                const fc = new Gtk.FileChooserDialog({
+                    title: "Export layouts",
+                    select_multiple: false,
+                    action: Gtk.FileChooserAction.SAVE,
+                    transient_for: window,
+                    filter: new Gtk.FileFilter({ suffixes: ["json"], name: "JSON" }),
+                });
+                fc.set_current_folder(Gio.File.new_for_path(GLib.get_home_dir()));
+                fc.add_button("Cancel", Gtk.ResponseType.CANCEL);
+                fc.add_button("Save", Gtk.ResponseType.OK);
+                fc.connect("response", (_source: Gtk.FileChooserDialog, response_id: number) => {
+                    try {
+                        if (response_id === Gtk.ResponseType.OK) {
+                            const file = _source.get_file();
+                            if (!file) throw "no file selected";
+
+                            debug(`Create file with path ${file.get_path()}`);
+                            const content = JSON.stringify(Settings.get_layouts_json());
+                            file.replace_contents_bytes_async(
+                                new TextEncoder().encode(content), 
+                                null, 
+                                false,
+                                Gio.FileCreateFlags.REPLACE_DESTINATION, 
+                                null,
+                                (file, res) => {
+                                    try {
+                                        file?.replace_contents_finish(res);
+                                    } catch (e) {
+                                        debug(e);
+                                    }
+                                }
+                            );
+                        }
+                    } catch (error: any) {
+                        debug(error);
+                    }
+                    
+                    _source.destroy();
+                });
+
+                fc.present();
+            }
+        );
+        layoutsGroup.add(exportLayoutsBtn);
+
+        const importLayoutsBtn = this._buildButtonRow(
+            "Import layouts", 
+            "Import layouts",
+            "Import layouts from a file. The current layouts will be replaced and this operation cannot be reverted",
+            () => {
+                const fc = new Gtk.FileChooserDialog({
+                    title: "Select layouts file",
+                    select_multiple: false,
+                    action: Gtk.FileChooserAction.OPEN,
+                    transient_for: window,
+                    filter: new Gtk.FileFilter({ suffixes: ["json"], name: "JSON" }),
+                });
+                fc.set_current_folder(Gio.File.new_for_path(GLib.get_home_dir()));
+                fc.add_button("Cancel", Gtk.ResponseType.CANCEL);
+                fc.add_button("Open", Gtk.ResponseType.OK);
+                fc.connect("response", (_source: Gtk.FileChooserDialog, response_id: number) => {
+                    try {
+                        if (response_id === Gtk.ResponseType.OK) {
+                            const file = _source.get_file();
+                            if (!file) {
+                                _source.destroy();
+                                return;
+                            }
+                            debug(`Selected path ${file.get_path()}`);
+                            const [success, content, etags] = file.load_contents(null);
+                            if (success) {
+                                let layouts = JSON.parse(new TextDecoder("utf-8").decode(content)) as Layout[];
+                                if (layouts.length === 0) throw "At least one layout is required";
+                                
+                                layouts = layouts.filter(layout => layout.tiles.length > 0);
+                                Settings.save_layouts_json(layouts);
+                                const selected = Settings.get_selected_layouts().map(val => layouts[0].id);
+                                Settings.save_selected_layouts_json(selected);
+                            } else {
+                                debug("Error while opening file");
+                            }
+                        }
+                    } catch (error: any) {
+                        debug(error);
+                    }
+                    
+                    _source.destroy();
+                });
+
+                fc.present();
+            },
+            "destructive-action"
+        );
+        layoutsGroup.add(importLayoutsBtn);
+
+        const resetBtn = this._buildButtonRow(
             "Reset layouts", 
             "Reset layouts",
             "Bring back the default layouts",
