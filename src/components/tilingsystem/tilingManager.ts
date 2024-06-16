@@ -271,7 +271,6 @@ export class TilingManager {
         
         selectionRect = selectionRect.copy();
         if (allowSpanMultipleTiles && this._selectedTilesPreview.showing) {
-            this._debug(`${this._selectedTilesPreview.rect.x} ${this._selectedTilesPreview.rect.y} ${this._selectedTilesPreview.rect.width} ${this._selectedTilesPreview.rect.height}`)
             selectionRect = selectionRect.union(this._selectedTilesPreview.rect);
         }
         this._tilingLayout.hoverTilesInRect(selectionRect, !allowSpanMultipleTiles);
@@ -305,7 +304,7 @@ export class TilingManager {
         this._snapAssist.close(true);
         this._lastCursorPos = null;
         
-        const isTilingSystemActivated = (global.get_pointer()[2] & this._activationKeyToNumber(Settings.get_tiling_system_activation_key())) != 0;
+        const isTilingSystemActivated = (global.get_pointer()[2] & 1 << this._activationKeyToNumber(Settings.get_tiling_system_activation_key())) != 0;
         if (!isTilingSystemActivated && !this._isSnapAssisting) return;
         
         // disable snap assistance
