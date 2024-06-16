@@ -8,7 +8,7 @@ import Clutter from "gi://Clutter";
 import GLib from "gi://GLib";
 import SnapAssist from '../snapassist/snapAssist';
 import SelectionTilePreview from '../tilepreview/selectionTilePreview';
-import Settings, { TilingSystemActivationKey } from '@/settings';
+import Settings, { ActivationKey } from '@/settings';
 import SignalHandling from '@/signalHandling';
 import Layout from '../layout/Layout';
 import Tile from '../layout/Tile';
@@ -169,14 +169,14 @@ export class TilingManager {
         this._onMovingWindow(window);
     }
 
-    private _activationKeyToModifierType(key: TilingSystemActivationKey) {
+    private _activationKeyToNumber(key: ActivationKey) {
         switch (key) {
-            case TilingSystemActivationKey.ALT:
-                return Clutter.ModifierType.MOD1_MASK
-            case TilingSystemActivationKey.CTRL:
-                return Clutter.ModifierType.CONTROL_MASK
-            case TilingSystemActivationKey.SUPER:
-                return Clutter.ModifierType.SUPER_MASK
+            case ActivationKey.CTRL:
+                return 2//Clutter.ModifierType.CONTROL_MASK
+            case ActivationKey.ALT:
+                return 3//Clutter.ModifierType.MOD1_MASK
+            case ActivationKey.SUPER:
+                return 6//Clutter.ModifierType.SUPER_MASK
         }
     }
 
@@ -218,9 +218,8 @@ export class TilingManager {
         const [x, y, modifier] = global.get_pointer();
         const currPointerPos = { x, y };
         
-        this._debug(modifier & Clutter.ModifierType.SUPER_MASK);
-        const isSpanMultiTilesActivated = (modifier & this._activationKeyToModifierType(Settings.get_span_multiple_tiles_activation_key())) != 0;
-        const isTilingSystemActivated = (modifier & this._activationKeyToModifierType(Settings.get_tiling_system_activation_key())) != 0;
+        const isSpanMultiTilesActivated = (modifier & 1 << this._activationKeyToNumber(Settings.get_span_multiple_tiles_activation_key())) != 0;
+        const isTilingSystemActivated = (modifier & 1 << this._activationKeyToNumber(Settings.get_tiling_system_activation_key())) != 0;
         const allowSpanMultipleTiles = Settings.get_span_multiple_tiles() && isSpanMultiTilesActivated;
         const showTilingSystem = Settings.get_tiling_system_enabled() && isTilingSystemActivated;
         // ensure we handle window movement only when needed
@@ -236,7 +235,7 @@ export class TilingManager {
         this._wasTilingSystemActivated = isTilingSystemActivated;
         this._wasSpanMultipleTilesActivated = isSpanMultiTilesActivated;
 
-        // layout must not be shown if it was disabled or if it is enabled but CTRL key is not pressed
+        // layout must not be shown if it was disabled or if it is enabled but tiling system activation key is not pressed
         // then close it and open snap assist (if enabled)
         if (!showTilingSystem) {
             if (this._tilingLayout.showing) {
@@ -271,7 +270,8 @@ export class TilingManager {
         if (!selectionRect) return GLib.SOURCE_CONTINUE;
         
         selectionRect = selectionRect.copy();
-        if (allowSpanMultipleTiles) {
+        if (allowSpanMultipleTiles && this._selectedTilesPreview.showing) {
+            this._debug(`${this._selectedTilesPreview.rect.x} ${this._selectedTilesPreview.rect.y} ${this._selectedTilesPreview.rect.width} ${this._selectedTilesPreview.rect.height}`)
             selectionRect = selectionRect.union(this._selectedTilesPreview.rect);
         }
         this._tilingLayout.hoverTilesInRect(selectionRect, !allowSpanMultipleTiles);
@@ -305,7 +305,7 @@ export class TilingManager {
         this._snapAssist.close(true);
         this._lastCursorPos = null;
         
-        const isTilingSystemActivated = (global.get_pointer()[2] & this._activationKeyToModifierType(Settings.get_tiling_system_activation_key())) != 0;
+        const isTilingSystemActivated = (global.get_pointer()[2] & this._activationKeyToNumber(Settings.get_tiling_system_activation_key())) != 0;
         if (!isTilingSystemActivated && !this._isSnapAssisting) return;
         
         // disable snap assistance

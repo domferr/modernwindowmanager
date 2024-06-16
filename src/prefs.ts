@@ -3,7 +3,7 @@ import Adw from "gi://Adw";
 import Gio from "gi://Gio";
 import Gdk from "gi://Gdk";
 import GObject from "gi://GObject";
-import Settings, { TilingSystemActivationKey, tilingSystemActivationKeys } from "./settings";
+import Settings, { ActivationKey, activationKeys } from "./settings";
 import { logger } from "./utils/shell";
 import { ExtensionPreferences } from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
@@ -97,7 +97,7 @@ export default class TilingShellExtensionPreferences extends ExtensionPreference
             "Hold the activation key while moving a window to tile it",
             this._buildShortcutButton(
                 Settings.get_tiling_system_activation_key(),
-                (newVal: TilingSystemActivationKey) => Settings.set_tiling_system_activation_key(newVal)
+                (newVal: ActivationKey) => Settings.set_tiling_system_activation_key(newVal)
             )
         );
         behaviourGroup.add(enableTilingSystemRow);
@@ -108,7 +108,7 @@ export default class TilingShellExtensionPreferences extends ExtensionPreference
             "Hold the activation key to span multiple tiles",
             this._buildShortcutButton(
                 Settings.get_span_multiple_tiles_activation_key(),
-                (newVal: TilingSystemActivationKey) => Settings.set_span_multiple_tiles_activation_key(newVal)
+                (newVal: ActivationKey) => Settings.set_span_multiple_tiles_activation_key(newVal)
             )
         );
         behaviourGroup.add(spanMultipleTilesRow);
@@ -251,17 +251,15 @@ export default class TilingShellExtensionPreferences extends ExtensionPreference
         }
     }
 
-    _buildShortcutButton(value: TilingSystemActivationKey, onSelected: (v: TilingSystemActivationKey) => void, styleClass?: string) {
+    _buildShortcutButton(value: ActivationKey, onSelected: (v: ActivationKey) => void, styleClass?: string) {
         const options = new Gtk.StringList();
-        tilingSystemActivationKeys.forEach(k => options.append(TilingSystemActivationKey[k]));
-        const selectedIndex = tilingSystemActivationKeys.findIndex(v => v === value);
+        activationKeys.forEach(k => options.append(ActivationKey[k]));
         const dropdown = new Gtk.DropDown({
             model: options,
-            selected: selectedIndex === -1 ? 0:selectedIndex
+            selected: value
         });
         dropdown.connect("notify::selected-item", (_: Gtk.DropDown) => {
-            const selected = tilingSystemActivationKeys[dropdown.get_selected()];
-            debug(`selected ${selected}`);
+            const selected = activationKeys[dropdown.get_selected()];
             onSelected(selected);
         });
         if (styleClass) dropdown.add_css_class(styleClass);

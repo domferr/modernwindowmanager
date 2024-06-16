@@ -35,9 +35,9 @@ export default class Settings {
         }
     }
 
-    static bind(key: string, object: GObject.Object, property: string): void {
+    static bind(key: string, object: GObject.Object, property: string, flags: Gio.SettingsBindFlags = Gio.SettingsBindFlags.DEFAULT): void {
         //@ts-ignore
-        this._settings?.bind(key, object, property, Gio.SettingsBindFlags.DEFAULT);
+        this._settings?.bind(key, object, property, flags);
     }
 
     static get_last_version_installed() : string {
@@ -53,7 +53,8 @@ export default class Settings {
     }
 
     static get_show_indicator() : boolean {
-        return this._settings?.get_boolean(this.SETTING_SHOW_INDICATOR) || true;
+        if (!this._settings) return true;
+        return this._settings.get_boolean(this.SETTING_SHOW_INDICATOR);
     }
 
     static get_inner_gaps(scaleFactor: number = 1) : { top: number, bottom: number, left: number, right: number } {
@@ -105,24 +106,28 @@ export default class Settings {
         return this._settings?.get_boolean(Settings.SETTING_RESIZE_COMPLEMENTING_WINDOWS) || false;
     }
 
-    static get_tiling_system_activation_key() : TilingSystemActivationKey {
-        return Number(this._settings?.get_strv(this.SETTING_TILING_SYSTEM_ACTIVATION_KEY)[0] || TilingSystemActivationKey.CTRL);
+    static get_tiling_system_activation_key() : ActivationKey {
+        return Number(this._settings?.get_strv(this.SETTING_TILING_SYSTEM_ACTIVATION_KEY)[0] || ActivationKey.CTRL);
     }
 
-    static get_span_multiple_tiles_activation_key() : TilingSystemActivationKey {
-        return Number(this._settings?.get_strv(this.SETTING_SPAN_MULTIPLE_TILES_ACTIVATION_KEY)[0] || TilingSystemActivationKey.ALT);
+    static get_span_multiple_tiles_activation_key() : ActivationKey {
+        return Number(this._settings?.get_strv(this.SETTING_SPAN_MULTIPLE_TILES_ACTIVATION_KEY)[0] || ActivationKey.ALT);
     }
 
     static set_last_version_installed(version: string) {
         this._settings?.set_string(this.SETTING_LAST_VERSION_NAME_INSTALLED, version);
     }
 
-    static set_tiling_system_activation_key(key: TilingSystemActivationKey) {
+    static set_tiling_system_activation_key(key: ActivationKey) {
         this._settings?.set_strv(this.SETTING_TILING_SYSTEM_ACTIVATION_KEY, [String(key)]);
     }
 
-    static set_span_multiple_tiles_activation_key(key: TilingSystemActivationKey) {
+    static set_span_multiple_tiles_activation_key(key: ActivationKey) {
         this._settings?.set_strv(this.SETTING_SPAN_MULTIPLE_TILES_ACTIVATION_KEY, [String(key)]);
+    }
+
+    static set_show_indicator(value: boolean) {
+        this._settings?.set_boolean(this.SETTING_SHOW_INDICATOR, value);
     }
 
     static reset_layouts_json() {
@@ -167,14 +172,14 @@ export default class Settings {
     }
 }
 
-export enum TilingSystemActivationKey {
+export enum ActivationKey {
     CTRL = 0,
     ALT,
     SUPER
 }
 
-export const tilingSystemActivationKeys = [
-    TilingSystemActivationKey.CTRL,
-    TilingSystemActivationKey.ALT,
-    TilingSystemActivationKey.SUPER
+export const activationKeys = [
+    ActivationKey.CTRL,
+    ActivationKey.ALT,
+    ActivationKey.SUPER
 ];
