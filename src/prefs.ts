@@ -251,9 +251,9 @@ export default class TilingShellExtensionPreferences extends ExtensionPreference
         }
     }
 
-    _buildShortcutButton(value: string, onSelected: (v: TilingSystemActivationKey) => void, styleClass?: string) {
+    _buildShortcutButton(value: TilingSystemActivationKey, onSelected: (v: TilingSystemActivationKey) => void, styleClass?: string) {
         const options = new Gtk.StringList();
-        tilingSystemActivationKeys.forEach(k => options.append(k));
+        tilingSystemActivationKeys.forEach(k => options.append(TilingSystemActivationKey[k]));
         const selectedIndex = tilingSystemActivationKeys.findIndex(v => v === value);
         const dropdown = new Gtk.DropDown({
             model: options,
