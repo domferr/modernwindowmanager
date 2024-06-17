@@ -105,7 +105,8 @@ export class TilingManager {
         });
 
         this._signals.connect(global.display, 'grab-op-begin', (_display: Meta.Display, window: Meta.Window, grabOp: Meta.GrabOp) => {
-            if (grabOp != Meta.GrabOp.MOVING) {
+            const moving = (grabOp & ~1024) === 1;
+            if (!moving) {
                 this._resizingManager.onWindowResizingBegin(window, grabOp);
                 return;
             }
