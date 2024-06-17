@@ -109,8 +109,7 @@ export class TilingManager {
             if (!moving) {
                 this._resizingManager.onWindowResizingBegin(window, grabOp);
                 return;
-            }
-
+            }            
             this._onWindowGrabBegin(window);
         });
 
@@ -128,6 +127,29 @@ export class TilingManager {
         );
     }
 
+    public onKeyboardMoveWindow(window: Meta.Window, direction: Meta.Direction) {
+        const windowRect = window.get_frame_rect().copy();
+        this._debug(`move window x:${windowRect.x} y:${windowRect.y} width:${windowRect.width} height:${windowRect.height}`);
+        const destinationRect = this._tilingLayout.getNearestTile(windowRect, direction);
+        if (!destinationRect) {
+            // handle maximize of window
+            if (direction === Meta.Direction.UP && window.can_maximize()) {
+                window.maximize(Meta.MaximizeFlags.BOTH);
+            }
+            return;
+        }
+        this._debug(`destinationRect x:${destinationRect.x} y:${destinationRect.y} width:${destinationRect.width} height:${destinationRect.height}`);
+
+        if (!(window as ExtendedWindow).isTiled) {
+            (window as ExtendedWindow).originalSize = windowRect;
+        }
+        (window as ExtendedWindow).isTiled = true;
+
+        if (window.get_maximized()) window.unmaximize(Meta.MaximizeFlags.BOTH);
+    
+        this._easeWindowRect(window, destinationRect);
+    }
+    
     /**
      * Destroys the tiling manager and cleans up resources.
      */
