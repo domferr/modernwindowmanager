@@ -195,7 +195,7 @@ export default class TilingShellExtensionPreferences extends ExtensionPreference
         const importLayoutsBtn = this._buildButtonRow(
             "Import layouts", 
             "Import layouts",
-            "Import layouts from a file. The current layouts will be replaced and this operation cannot be reverted",
+            "Import layouts from a file",
             () => {
                 const fc = new Gtk.FileChooserDialog({
                     title: "Select layouts file",
@@ -218,13 +218,13 @@ export default class TilingShellExtensionPreferences extends ExtensionPreference
                             debug(`Selected path ${file.get_path()}`);
                             const [success, content, etags] = file.load_contents(null);
                             if (success) {
-                                let layouts = JSON.parse(new TextDecoder("utf-8").decode(content)) as Layout[];
-                                if (layouts.length === 0) throw "At least one layout is required";
+                                let importedLayouts = JSON.parse(new TextDecoder("utf-8").decode(content)) as Layout[];
+                                if (importedLayouts.length === 0) throw "At least one layout is required";
                                 
-                                layouts = layouts.filter(layout => layout.tiles.length > 0);
-                                Settings.save_layouts_json(layouts);
-                                const selected = Settings.get_selected_layouts().map(val => layouts[0].id);
-                                Settings.save_selected_layouts_json(selected);
+                                importedLayouts = importedLayouts.filter(layout => layout.tiles.length > 0);
+                                const newLayouts = Settings.get_layouts_json();
+                                newLayouts.push(...importedLayouts);
+                                Settings.save_layouts_json(newLayouts);
                             } else {
                                 debug("Error while opening file");
                             }
@@ -237,8 +237,7 @@ export default class TilingShellExtensionPreferences extends ExtensionPreference
                 });
 
                 fc.present();
-            },
-            "destructive-action"
+            }
         );
         layoutsGroup.add(importLayoutsBtn);
 

@@ -74,7 +74,7 @@ export class TilingManager {
         this._selectedTilesPreview = new SelectionTilePreview({ parent: global.windowGroup });
 
         // build the snap assistant
-        this._snapAssist = new SnapAssist(global.windowGroup, this._workArea, monitorScalingFactor);
+        this._snapAssist = new SnapAssist(Main.uiGroup, this._workArea, monitorScalingFactor);
 
         this._resizingManager = new ResizingManager();
     }
@@ -122,9 +122,7 @@ export class TilingManager {
             this._onWindowGrabEnd(window);
         });
 
-        this._signals.connect(this._snapAssist, "snap-assist",
-            (_: SnapAssist, tile: Tile) => this._onSnapAssist(tile)
-        );
+        this._signals.connect(this._snapAssist, "snap-assist", this._onSnapAssist.bind(this));
     }
 
     public onKeyboardMoveWindow(window: Meta.Window, direction: Meta.Direction) {
@@ -371,7 +369,7 @@ export class TilingManager {
         );
     }
 
-    private _onSnapAssist(tile: Tile) {
+    private _onSnapAssist(_: SnapAssist, tile: Tile) {
         // if there isn't a tile hovered, then close selection
         if (tile.width === 0 || tile.height === 0) {
             this._selectedTilesPreview.close();
@@ -397,6 +395,7 @@ export class TilingManager {
             this._workArea,
             this._enableScaling ? getScalingFactorOf(this._tilingLayout)[1]:undefined
         ); 
+        this._selectedTilesPreview.get_parent()?.set_child_above_sibling(this._selectedTilesPreview, null);
         this._selectedTilesPreview.open(true, scaledRect);
         this._isSnapAssisting = true;
     }
