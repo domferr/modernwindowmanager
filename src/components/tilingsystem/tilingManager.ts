@@ -190,15 +190,22 @@ export class TilingManager {
         this._onMovingWindow(window);
     }
 
-    private _activationKeyToNumber(key: ActivationKey) {
+    private _activationKeyStatus(modifier: number, key: ActivationKey): boolean {
+        if (key === ActivationKey.NONE) return true;
+
+        let val = 2;
         switch (key) {
             case ActivationKey.CTRL:
-                return 2//Clutter.ModifierType.CONTROL_MASK
+                val = 2;//Clutter.ModifierType.CONTROL_MASK
+                break;
             case ActivationKey.ALT:
-                return 3//Clutter.ModifierType.MOD1_MASK
+                val = 3;//Clutter.ModifierType.MOD1_MASK
+                break;
             case ActivationKey.SUPER:
-                return 6//Clutter.ModifierType.SUPER_MASK
+                val = 6;//Clutter.ModifierType.SUPER_MASK
+                break;
         }
+        return (modifier & 1 << val) != 0;
     }
 
     private _onMovingWindow(window: Meta.Window) {
@@ -239,8 +246,8 @@ export class TilingManager {
         const [x, y, modifier] = global.get_pointer();
         const currPointerPos = { x, y };
         
-        const isSpanMultiTilesActivated = (modifier & 1 << this._activationKeyToNumber(Settings.get_span_multiple_tiles_activation_key())) != 0;
-        const isTilingSystemActivated = (modifier & 1 << this._activationKeyToNumber(Settings.get_tiling_system_activation_key())) != 0;
+        const isSpanMultiTilesActivated = this._activationKeyStatus(modifier, Settings.get_span_multiple_tiles_activation_key());
+        const isTilingSystemActivated = this._activationKeyStatus(modifier, Settings.get_tiling_system_activation_key());
         const allowSpanMultipleTiles = Settings.get_span_multiple_tiles() && isSpanMultiTilesActivated;
         const showTilingSystem = Settings.get_tiling_system_enabled() && isTilingSystemActivated;
         // ensure we handle window movement only when needed
@@ -325,7 +332,7 @@ export class TilingManager {
         this._snapAssist.close(true);
         this._lastCursorPos = null;
         
-        const isTilingSystemActivated = (global.get_pointer()[2] & 1 << this._activationKeyToNumber(Settings.get_tiling_system_activation_key())) != 0;
+        const isTilingSystemActivated = this._activationKeyStatus(global.get_pointer()[2], Settings.get_tiling_system_activation_key());
         if (!isTilingSystemActivated && !this._isSnapAssisting) return;
         
         // disable snap assistance

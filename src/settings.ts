@@ -182,13 +182,8 @@ export default class Settings {
 }
 
 export enum ActivationKey {
+    NONE = -1,
     CTRL = 0,
     ALT,
     SUPER
 }
-
-export const activationKeys = [
-    ActivationKey.CTRL,
-    ActivationKey.ALT,
-    ActivationKey.SUPER
-];
