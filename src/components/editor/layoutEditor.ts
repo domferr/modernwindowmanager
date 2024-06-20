@@ -5,6 +5,7 @@ import Meta from 'gi://Meta';
 import Mtk from "gi://Mtk";
 import Settings from "@/settings";
 import Shell from 'gi://Shell';
+import GObject from 'gi://GObject';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import { buildMargin, buildRectangle, buildTileGaps, enableScalingFactorSupport, getEventCoords, getScalingFactor, getWindowsOfMonitor } from "@/utils/ui";
 import Layout from "../layout/Layout";
@@ -32,8 +33,8 @@ export default class LayoutEditor extends St.Widget {
     constructor(layout: Layout, monitor: Monitor, enableScaling: boolean) {
         super({ styleClass: "layout-editor" });
 
-        Main.uiGroup.add_child(this);
-        Main.uiGroup.set_child_below_sibling(this, Main.layoutManager.modalDialogGroup);
+        Main.layoutManager.addChrome(this);
+        global.windowGroup.bind_property("visible", this, "visible", GObject.BindingFlags.DEFAULT);
 
         if (enableScaling) {
             const scalingFactor = getScalingFactor(monitor.index);
@@ -52,11 +53,11 @@ export default class LayoutEditor extends St.Widget {
         this._minimizedWindows.forEach(win => win.can_minimize() && win.minimize());
         
         this._hoverWidget = new HoverLine(this);
-
-        this.connect("destroy", this._onDestroy.bind(this));
-        debug("LayoutEditor ctor");
+        
         this._layout = layout;
         this._drawEditor();
+
+        this.connect("destroy", this._onDestroy.bind(this));
     }
 
     public get layout(): Layout {
@@ -250,8 +251,10 @@ export default class LayoutEditor extends St.Widget {
 
     private _onDestroy() {
         this._minimizedWindows.forEach(win => win.unminimize());
+
         this.destroy_all_children();
         this._sliders = [];
+        
         super.destroy();
     }
 }
