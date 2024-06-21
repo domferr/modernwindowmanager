@@ -109,7 +109,8 @@ export class TilingManager {
             if (!moving) {
                 this._resizingManager.onWindowResizingBegin(window, grabOp);
                 return;
-            }            
+            }
+            
             this._onWindowGrabBegin(window);
         });
 
@@ -118,7 +119,6 @@ export class TilingManager {
                 this._resizingManager.onWindowResizingEnd(window);
                 return;
             }
-
             this._onWindowGrabEnd(window);
         });
 
@@ -179,6 +179,11 @@ export class TilingManager {
 
     private _onWindowGrabBegin(window: Meta.Window) {
         if (this._isGrabbingWindow) return;
+
+        /*this._signals.connect(window, 'position-changed', () => {
+            this._selectedTilesPreview.queue_redraw();
+            this._snapAssist.queue_redraw();
+        });*/
 
         this._isGrabbingWindow = true;
         this._movingWindowTimerId = GLib.timeout_add(
@@ -320,6 +325,8 @@ export class TilingManager {
     }
 
     private _onWindowGrabEnd(window: Meta.Window) {
+        //this._signals.disconnect(window);
+
         this._isGrabbingWindow = false;
         this._tilingLayout.close();
         const selectionRect = buildRectangle({
