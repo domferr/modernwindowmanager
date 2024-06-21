@@ -3,6 +3,7 @@ import { logger } from "@/utils/shell";
 import { registerGObjectClass } from "@/utils/gjs";
 import Mtk from 'gi://Mtk';
 import Clutter from 'gi://Clutter';
+import GObject, { MetaInfo } from 'gi://GObject';
 import TilePreview, { WINDOW_ANIMATION_TIME, TilePreviewConstructorProperties } from '../tilepreview/tilePreview';
 import LayoutWidget from '../layout/LayoutWidget';
 import Layout from '../layout/Layout';
@@ -97,7 +98,7 @@ export default class TilingLayout extends LayoutWidget<DynamicTilePreview> {
         this.open();
     }
 
-    public open() {
+    public open(ease: boolean = false) {
         if (this._showing) return;
         
         this.show();
@@ -107,19 +108,19 @@ export default class TilingLayout extends LayoutWidget<DynamicTilePreview> {
             x: this.x,
             y: this.y,
             opacity: 255,
-            duration: WINDOW_ANIMATION_TIME,
+            duration: ease ? WINDOW_ANIMATION_TIME:0,
             mode: Clutter.AnimationMode.EASE_OUT_QUAD,
         });
     }
 
-    public close() {
+    public close(ease: boolean = false) {
         if (!this._showing) return;
         
         this._showing = false;
         // @ts-ignore
         this.ease({
             opacity: 0,
-            duration: WINDOW_ANIMATION_TIME,
+            duration: ease ? WINDOW_ANIMATION_TIME:0,
             mode: Clutter.AnimationMode.EASE_OUT_QUAD,
             onComplete: () => {
                 this.unhoverAllTiles();
@@ -149,7 +150,7 @@ export default class TilingLayout extends LayoutWidget<DynamicTilePreview> {
         this._previews.forEach(preview => {
             if (preview.restore(true)) {
                 newPreviewsArray.push(preview);
-                preview.open();
+                preview.open(true);
             } else {
                 this.remove_child(preview);
                 preview.destroy();

@@ -67,6 +67,12 @@
             <summary>Enable auto-resize of the complementing tiled windows</summary>
             <description>When a tiled window is resized, auto-resize the other tiled windows near it.</description>
         </key>
+        <key name="enable-blur" type="b">
+            <default>false</default>
+            <summary>Enable blur</summary>
+            <description>Blur snap assistant and tile previews.</description>
+        </key>
+
 		<key type="as" name="move-window-right">
 			<default><![CDATA[['<Super>Right']]]></default>
 			<summary>Move focused window to the tile to its right</summary>

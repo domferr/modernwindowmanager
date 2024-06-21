@@ -4,9 +4,9 @@ import Meta from 'gi://Meta';
 import Shell from 'gi://Shell';
 import Settings from '@settings';
 
-export default class Keybindings {
+export default class OverrideSettings {
     // map schema_id with map of keys and old values
-    private _overriddenKeys: Map<string, Map<string, string[]>> | null;
+    private _overriddenKeys: Map<string, Map<string, any>> | null;
 
     constructor() {
         this._overriddenKeys = null;
@@ -20,15 +20,15 @@ export default class Keybindings {
 
         this._overriddenKeys = new Map();
         // Disable native keybindings for Super + Left/Right/Up/Down
-        const mutter = new Gio.Settings({
+        const mutterKeybindings = new Gio.Settings({
             schema_id: 'org.gnome.mutter.keybindings'
         });
         this._overrideKeyBinding(Settings.SETTING_MOVE_WINDOW_RIGHT, (display: Meta.Display) => {
             _onKeyboardMoveWin(display, Meta.Direction.RIGHT);
-        }, giosettings, mutter, "toggle-tiled-right");
+        }, giosettings, mutterKeybindings, "toggle-tiled-right");
         this._overrideKeyBinding(Settings.SETTING_MOVE_WINDOW_LEFT, (display: Meta.Display) => {
             _onKeyboardMoveWin(display, Meta.Direction.LEFT);
-        }, giosettings, mutter, "toggle-tiled-left");
+        }, giosettings, mutterKeybindings, "toggle-tiled-left");
 
         const desktopWm = new Gio.Settings({
             schema_id: 'org.gnome.desktop.wm.keybindings'
@@ -39,6 +39,12 @@ export default class Keybindings {
         this._overrideKeyBinding(Settings.SETTING_MOVE_WINDOW_DOWN, (display: Meta.Display) => {
             _onKeyboardMoveWin(display, Meta.Direction.DOWN);
         }, giosettings, desktopWm, "unmaximize");
+        
+        const mutter = new Gio.Settings({
+            schema_id: 'org.gnome.mutter'
+        });
+        this._trackOldValue(mutter.schema_id, 'edge-tiling', mutter.get_boolean('edge-tiling'));
+        mutter.set_boolean('edge-tiling', false);
     }
 
     private _overrideKeyBinding(
@@ -51,11 +57,8 @@ export default class Keybindings {
         if (!this._overriddenKeys) return;
 
         if (nativeSettings.get_strv(nativeKeyName).includes(gioSettings.get_strv(name)[0])) {
-           if (!this._overriddenKeys.has(nativeSettings.schema_id)) {
-            this._overriddenKeys.set(nativeSettings.schema_id, new Map());
-           }
-           this._overriddenKeys.get(nativeSettings.schemaId)?.set(nativeKeyName, nativeSettings.get_strv(nativeKeyName));
-           nativeSettings.set_strv(nativeKeyName, []);
+            this._trackOldValue(nativeSettings.schema_id, nativeKeyName, nativeSettings.get_strv(nativeKeyName));
+            nativeSettings.set_strv(nativeKeyName, []);
         }
 
         Main.wm.addKeybinding(
@@ -67,6 +70,15 @@ export default class Keybindings {
         );
     }
 
+    private _trackOldValue(schemaId: string, key: string, oldValue: any) {
+        if (!this._overriddenKeys) return;
+
+        if (!this._overriddenKeys.has(schemaId)) {
+            this._overriddenKeys.set(schemaId, new Map());
+        }
+        this._overriddenKeys.get(schemaId)?.set(key, oldValue);
+    }
+
     public disable() {
         Main.wm.removeKeybinding(Settings.SETTING_MOVE_WINDOW_RIGHT);
         Main.wm.removeKeybinding(Settings.SETTING_MOVE_WINDOW_LEFT);
@@ -75,16 +87,27 @@ export default class Keybindings {
 
         if (this._overriddenKeys) {
             // Enable back native keybindings for Super + Left/Right/Up/Down
-            const mutter = new Gio.Settings({
+            const mutterKeybindings = new Gio.Settings({
                 schema_id: 'org.gnome.mutter.keybindings'
             });
             const desktopWm = new Gio.Settings({
                 schema_id: 'org.gnome.desktop.wm.keybindings'
             });
 
-            this._overriddenKeys.get(mutter.schema_id)?.forEach((oldValue: string[], key: string) => {
-                mutter.set_strv(key, oldValue);
+            this._overriddenKeys.get(mutterKeybindings.schema_id)?.forEach((oldValue: string[], key: string) => {
+                mutterKeybindings.set_strv(key, oldValue);
             });
+            this._overriddenKeys.get(desktopWm.schema_id)?.forEach((oldValue: string[], key: string) => {
+                desktopWm.set_strv(key, oldValue);
+            });
+
+            const mutter = new Gio.Settings({
+                schema_id: 'org.gnome.mutter'
+            });
+            if (this._overriddenKeys.get(mutter.schemaId)) {
+                const oldValue = this._overriddenKeys.get(mutter.schemaId)?.get('edge-tiling');
+                mutter.set_boolean('edge-tiling', oldValue);
+            }
             this._overriddenKeys.get(desktopWm.schema_id)?.forEach((oldValue: string[], key: string) => {
                 desktopWm.set_strv(key, oldValue);
             });

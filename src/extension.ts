@@ -12,7 +12,7 @@ import GlobalState from './globalState';
 import Indicator from './indicator/indicator';
 import { Extension, ExtensionMetadata } from 'resource:///org/gnome/shell/extensions/extension.js';
 import DBus from './dbus';
-import Keybindings from '@keybindings';
+import OverrideSettings from '@keybindings';
 
 const SIGNAL_WORKAREAS_CHANGED = 'workareas-changed';
 const debug = logger('extension');
@@ -23,7 +23,7 @@ export default class TilingShellExtension extends Extension {
   private _fractionalScalingEnabled: boolean;
   private _dbus: DBus | null;
   private _signals: SignalHandling | null;
-  private _keybindings: Keybindings | null;
+  private _keybindings: OverrideSettings | null;
 
   constructor(metadata: ExtensionMetadata) {
     super(metadata);
@@ -89,7 +89,7 @@ export default class TilingShellExtension extends Extension {
     }
     
     if (!this._keybindings) {
-      this._keybindings = new Keybindings();
+      this._keybindings = new OverrideSettings();
       this._keybindings.enable(this.getSettings(), this._onKeyboardMoveWin.bind(this));
     }
 

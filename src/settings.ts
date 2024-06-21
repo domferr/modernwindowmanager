@@ -20,6 +20,7 @@ export default class Settings {
     static SETTING_SELECTED_LAYOUTS = 'selected-layouts';
     static SETTING_RESTORE_WINDOW_ORIGINAL_SIZE = 'restore-window-original-size';
     static SETTING_RESIZE_COMPLEMENTING_WINDOWS = 'resize-complementing-windows';
+    static SETTING_ENABLE_BLUR = "enable-blur";
 
     static SETTING_MOVE_WINDOW_RIGHT = 'move-window-right';
     static SETTING_MOVE_WINDOW_LEFT = 'move-window-left';
@@ -46,15 +47,15 @@ export default class Settings {
     }
 
     static get_last_version_installed() : string {
-        return this._settings?.get_string(this.SETTING_LAST_VERSION_NAME_INSTALLED) || "0";
+        return this._settings?.get_string(this.SETTING_LAST_VERSION_NAME_INSTALLED) ?? "0";
     }
 
     static get_tiling_system_enabled() : boolean {
-        return this._settings?.get_boolean(this.SETTING_TILING_SYSTEM) || false;
+        return this._settings?.get_boolean(this.SETTING_TILING_SYSTEM) ?? false;
     }
 
     static get_snap_assist_enabled() : boolean {
-        return this._settings?.get_boolean(this.SETTING_SNAP_ASSIST) || false;
+        return this._settings?.get_boolean(this.SETTING_SNAP_ASSIST) ?? false;
     }
 
     static get_show_indicator() : boolean {
@@ -64,7 +65,7 @@ export default class Settings {
 
     static get_inner_gaps(scaleFactor: number = 1) : { top: number, bottom: number, left: number, right: number } {
         // get the gaps settings and scale by scale factor
-        const value = (this._settings?.get_uint(this.SETTING_INNER_GAPS) || 0)  * scaleFactor;
+        const value = (this._settings?.get_uint(this.SETTING_INNER_GAPS) ?? 0)  * scaleFactor;
         return {
             top: value,
             bottom: value,
@@ -75,7 +76,7 @@ export default class Settings {
 
     static get_outer_gaps(scaleFactor: number = 1) : { top: number, bottom: number, left: number, right: number } {
         // get the gaps settings and scale by scale factor
-        const value = (this._settings?.get_uint(this.SETTING_OUTER_GAPS) || 0) * scaleFactor;
+        const value = (this._settings?.get_uint(this.SETTING_OUTER_GAPS) ?? 0) * scaleFactor;
         return {
             top: value,
             bottom: value,
@@ -85,7 +86,7 @@ export default class Settings {
     }
 
     static get_span_multiple_tiles() : boolean {
-        return this._settings?.get_boolean(this.SETTING_SPAN_MULTIPLE_TILES) || false;
+        return this._settings?.get_boolean(this.SETTING_SPAN_MULTIPLE_TILES) ?? false;
     }
 
     static get_layouts_json() : Layout[] {
@@ -104,11 +105,11 @@ export default class Settings {
     }
 
     static get_restore_window_original_size() : boolean {
-        return this._settings?.get_boolean(Settings.SETTING_RESTORE_WINDOW_ORIGINAL_SIZE) || false;
+        return this._settings?.get_boolean(Settings.SETTING_RESTORE_WINDOW_ORIGINAL_SIZE) ?? false;
     }
 
     static get_resize_complementing_windows(): boolean {
-        return this._settings?.get_boolean(Settings.SETTING_RESIZE_COMPLEMENTING_WINDOWS) || false;
+        return this._settings?.get_boolean(Settings.SETTING_RESIZE_COMPLEMENTING_WINDOWS) ?? false;
     }
 
     static get_tiling_system_activation_key() : ActivationKey {
@@ -121,6 +122,10 @@ export default class Settings {
         const val = this._settings?.get_strv(this.SETTING_SPAN_MULTIPLE_TILES_ACTIVATION_KEY);
         if (!val || val.length === 0) return ActivationKey.ALT;
         return Number(val[0]);
+    }
+
+    static get_enable_blur(): boolean {
+        return this._settings?.get_boolean(this.SETTING_ENABLE_BLUR) ?? false;
     }
 
     static set_last_version_installed(version: string) {
