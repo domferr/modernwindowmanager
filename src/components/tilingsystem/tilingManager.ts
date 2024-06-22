@@ -234,6 +234,7 @@ export class TilingManager {
             this._selectedTilesPreview.close(true);
             this._snapAssist.close(true);
             this._isSnapAssisting = false;
+            this._activeEdgeTile = null;
             
             return GLib.SOURCE_CONTINUE;
         }
@@ -292,10 +293,10 @@ export class TilingManager {
                     this._selectedTilesPreview.close(true);
                     this._activeEdgeTile = null;
                 }
-            }
 
-            if (Settings.get_snap_assist_enabled()) {
-                this._snapAssist.onMovingWindow(window, true, currPointerPos);
+                if (Settings.get_snap_assist_enabled()) {
+                    this._snapAssist.onMovingWindow(window, true, currPointerPos);
+                }
             }
 
             return GLib.SOURCE_CONTINUE;
@@ -306,6 +307,11 @@ export class TilingManager {
             //this._debug("open layout below grabbed window");
             this._tilingLayout.openAbove(window);
             this._snapAssist.close(true);
+            // close selection tile if we were performing edge-tiling
+            if (this._activeEdgeTile) {
+                this._selectedTilesPreview.close(true);
+                this._activeEdgeTile = null;
+            }
         }
         // if it was snap assisting then close the selection tile preview. We may reopen it if that's the case
         if (this._isSnapAssisting) {
@@ -358,10 +364,11 @@ export class TilingManager {
         this._snapAssist.close(true);
         this._lastCursorPos = null;
         
-        const isTilingSystemActivated = this._activationKeyStatus(global.get_pointer()[2], Settings.get_tiling_system_activation_key());
-        if (!isTilingSystemActivated 
-            && !this._isSnapAssisting 
-            && !this._activeEdgeTile) {//this._isEdgeTiling(global.get_pointer()[0], global.get_pointer()[1])) {
+        const isTilingSystemActivated = this._activationKeyStatus(
+            global.get_pointer()[2], 
+            Settings.get_tiling_system_activation_key()
+        );
+        if (!isTilingSystemActivated && !this._isSnapAssisting && !this._activeEdgeTile) {
                 return;
         }
         
@@ -461,10 +468,10 @@ export class TilingManager {
 
         const previewRect = buildRectangle();
         const quarterPercentage = 0.5;
-        const activationPercentage = 0.3;
+        const activationPercentage = 0.4;
 
-        let horizontally = false;
-        if (this._activeEdgeTile && isPointInsideRect({x, y}, this._activeEdgeTile)) {
+        let isRightSide = false;
+        if (this._activeEdgeTile && y >= this._activeEdgeTile.y && y <= this._activeEdgeTile.y + this._activeEdgeTile.height) {
             return;
         }
 
@@ -472,43 +479,40 @@ export class TilingManager {
 
         // left side
         if (x <= this._workArea.x + EDGE_TILING_OFFSET) {
-            previewRect.x = this._workArea.x;
             previewRect.width = this._workArea.width / 2;
+            previewRect.x = this._workArea.x;
             previewRect.y = this._workArea.y;
-            horizontally = true;
         // right side
         } else if (x >= this._workArea.x + this._workArea.width - EDGE_TILING_OFFSET) {
             previewRect.width = this._workArea.width / 2;
             previewRect.x = this._workArea.width - previewRect.width + this._workArea.x;
             previewRect.y = this._workArea.y;
-            horizontally = true;
-        }
-
-        if (horizontally) {
-            this._activeEdgeTile.width = previewRect.width;
-            this._activeEdgeTile.x = previewRect.x;
-            // top quarter
-            if (y < this._workArea.y + (this._workArea.height * activationPercentage)) {
-                previewRect.height = this._workArea.height * quarterPercentage;
-
-                this._activeEdgeTile.height = this._workArea.height * activationPercentage;
-                this._activeEdgeTile.y = previewRect.y;
-            // bottom quarter
-            } else if (y > this._workArea.y + this._workArea.height - (this._workArea.height * activationPercentage)) {
-                previewRect.height = this._workArea.height * quarterPercentage;
-                previewRect.y = this._workArea.y + this._workArea.height - previewRect.height;
-
-                this._activeEdgeTile.height = this._workArea.height * activationPercentage;
-                this._activeEdgeTile.y = this._workArea.y + this._workArea.height - this._activeEdgeTile.height;
-            // full edge
-            } else {
-                previewRect.height = this._workArea.height;
-
-                this._activeEdgeTile.y = this._workArea.y + (this._workArea.height * activationPercentage);
-                this._activeEdgeTile.height = this._workArea.height * (1 - (activationPercentage * 2));
-            }
+            isRightSide = true;
         } else {
             return;
+        }
+        
+        this._activeEdgeTile.width = previewRect.width;
+        this._activeEdgeTile.x = previewRect.x;
+        // top quarter
+        if (y < this._workArea.y + (this._workArea.height * activationPercentage)) {
+            previewRect.height = this._workArea.height * quarterPercentage;
+
+            this._activeEdgeTile.height = this._workArea.height * activationPercentage;
+            this._activeEdgeTile.y = previewRect.y;
+        // bottom quarter
+        } else if (y > this._workArea.y + this._workArea.height - (this._workArea.height * activationPercentage)) {
+            previewRect.height = this._workArea.height * quarterPercentage;
+            previewRect.y = this._workArea.y + this._workArea.height - previewRect.height;
+
+            this._activeEdgeTile.height = this._workArea.height * activationPercentage;
+            this._activeEdgeTile.y = this._workArea.y + this._workArea.height - this._activeEdgeTile.height;
+        // full edge
+        } else {
+            previewRect.height = this._workArea.height;
+
+            this._activeEdgeTile.y = this._workArea.y + (this._workArea.height * activationPercentage);
+            this._activeEdgeTile.height = this._workArea.height * (1 - (activationPercentage * 2));
         }
 
         /* uncomment to show active tile debugging
@@ -532,13 +536,15 @@ export class TilingManager {
         );
 
         if (!this._selectedTilesPreview.showing) {
+            const width = previewRect.width * 0.2;
+            const height = previewRect.height * 0.2;
             this._selectedTilesPreview.open(
                 false, 
                 buildRectangle({ 
-                    x: previewRect.x >= this._workArea.x + (this._workArea.width / 2) ? (previewRect.x + previewRect.width):previewRect.x, 
-                    y: previewRect.y + (previewRect.height / 2),
-                    width: this._selectedTilesPreview.gaps.left + this._selectedTilesPreview.gaps.right + 8,
-                    height: this._selectedTilesPreview.gaps.top + this._selectedTilesPreview.gaps.bottom + 8
+                    x: isRightSide ? (previewRect.x + previewRect.width - width):previewRect.x, 
+                    y: y - (height / 2),
+                    width: width,
+                    height: height
                 })
             );
         }
