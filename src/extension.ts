@@ -12,7 +12,7 @@ import GlobalState from './globalState';
 import Indicator from './indicator/indicator';
 import { Extension, ExtensionMetadata } from 'resource:///org/gnome/shell/extensions/extension.js';
 import DBus from './dbus';
-import OverrideSettings from '@keybindings';
+import KeyBindings from './keybindings';
 
 const SIGNAL_WORKAREAS_CHANGED = 'workareas-changed';
 const debug = logger('extension');
@@ -23,7 +23,7 @@ export default class TilingShellExtension extends Extension {
   private _fractionalScalingEnabled: boolean;
   private _dbus: DBus | null;
   private _signals: SignalHandling | null;
-  private _keybindings: OverrideSettings | null;
+  private _keybindings: KeyBindings | null;
 
   constructor(metadata: ExtensionMetadata) {
     super(metadata);
@@ -43,8 +43,10 @@ export default class TilingShellExtension extends Extension {
 
   private _validateSettings() {
     // Setting used for compatibility changes if necessary
-    // Settings.get_last_version_installed()
     if (this.metadata['version-name']) {
+      if (Settings.get_last_version_installed() === '9.0' || Settings.get_last_version_installed() === '9.1') {
+        KeyBindings.solveV9CompatibilityIssue();
+      }
       Settings.set_last_version_installed(this.metadata['version-name'] || "0");
     }
 
@@ -76,6 +78,9 @@ export default class TilingShellExtension extends Extension {
     this._validateSettings();
 
     this._fractionalScalingEnabled = this._isFractionalScalingEnabled(new Gio.Settings({ schema: 'org.gnome.mutter' }));
+    
+    if (this._keybindings) this._keybindings.destroy();
+    this._keybindings = new KeyBindings(this.getSettings());
 
     //@ts-ignore
     if (Main.layoutManager._startingUp) {
@@ -87,11 +92,6 @@ export default class TilingShellExtension extends Extension {
       this._createTilingManagers();
       this._setupSignals();
     }
-    
-    if (!this._keybindings) {
-      this._keybindings = new OverrideSettings();
-      this._keybindings.enable(this.getSettings(), this._onKeyboardMoveWin.bind(this));
-    }
 
     this.createIndicator();
 
@@ -100,25 +100,6 @@ export default class TilingShellExtension extends Extension {
     this._dbus.enable(this);
     
     debug('extension is enabled');
-  }
-
-  private _onKeyboardMoveWin(display: Meta.Display, direction: Meta.Direction) {
-    const focus_window = display.get_focus_window();
-    if (!focus_window || !focus_window.has_focus() || 
-      (focus_window.get_wm_class() && focus_window.get_wm_class() === 'gjs')) {
-      return;
-    }
-
-    // handle unmaximize of maximized window
-    if (direction === Meta.Direction.DOWN && focus_window.get_maximized()) {
-      focus_window.unmaximize(Meta.MaximizeFlags.BOTH);
-      return;
-    }
-    
-    const monitorTilingManager = this._tilingManagers[focus_window.get_monitor()];
-    if (!monitorTilingManager) return;
-    
-    monitorTilingManager.onKeyboardMoveWindow(focus_window, direction);
   }
 
   public openLayoutEditor() {
@@ -167,6 +148,29 @@ export default class TilingShellExtension extends Extension {
         if (this._indicator) this._indicator.enableScaling = !this._fractionalScalingEnabled;
       }
     );
+
+    if (this._keybindings) {
+      this._signals.connect(this._keybindings, 'move-window', this._onKeyboardMoveWin.bind(this));
+    }
+  }
+
+  private _onKeyboardMoveWin(kb: KeyBindings, display: Meta.Display, direction: Meta.Direction) {
+    const focus_window = display.get_focus_window();
+    if (!focus_window || !focus_window.has_focus() || 
+      (focus_window.get_wm_class() && focus_window.get_wm_class() === 'gjs')) {
+      return;
+    }
+
+    // handle unmaximize of maximized window
+    if (direction === Meta.Direction.DOWN && focus_window.get_maximized()) {
+      focus_window.unmaximize(Meta.MaximizeFlags.BOTH);
+      return;
+    }
+    
+    const monitorTilingManager = this._tilingManagers[focus_window.get_monitor()];
+    if (!monitorTilingManager) return;
+    
+    monitorTilingManager.onKeyboardMoveWindow(focus_window, direction);
   }
 
   private _isFractionalScalingEnabled(_mutterSettings: Gio.Settings): boolean {
@@ -192,7 +196,7 @@ export default class TilingShellExtension extends Extension {
     this._dbus = null;
 
     // bring back overridden keybindings
-    if (this._keybindings) this._keybindings.disable();
+    if (this._keybindings) this._keybindings.destroy();
     this._keybindings = null;
 
     // destroy state and settings

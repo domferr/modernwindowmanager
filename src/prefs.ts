@@ -135,6 +135,13 @@ export default class TilingShellExtensionPreferences extends ExtensionPreference
         );
         behaviourGroup.add(restoreToOriginalSizeRow);
 
+        const keybindingsRow = this._buildSwitchRow(
+            Settings.SETTING_ENABLE_MOVE_KEYBINDINGS,
+            "Enable keybindings",
+            "Override Super + ←↑↓→ to follow your selected layout, instead of GNOME's default 2 columns"
+        );
+        behaviourGroup.add(keybindingsRow);
+
         // Layouts section
         const layoutsGroup = new Adw.PreferencesGroup({
             title: 'Layouts',

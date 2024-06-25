@@ -8,6 +8,7 @@ export default class Settings {
     static _is_initialized: boolean = false;
 
     static SETTING_LAST_VERSION_NAME_INSTALLED = 'last-version-name-installed';
+    static SETTING_OVERRIDDEN_SETTINGS = 'overridden-settings';
     static SETTING_TILING_SYSTEM = 'enable-tiling-system';
     static SETTING_TILING_SYSTEM_ACTIVATION_KEY = 'tiling-system-activation-key';
     static SETTING_SNAP_ASSIST = 'enable-snap-assist';
@@ -21,6 +22,7 @@ export default class Settings {
     static SETTING_RESTORE_WINDOW_ORIGINAL_SIZE = 'restore-window-original-size';
     static SETTING_RESIZE_COMPLEMENTING_WINDOWS = 'resize-complementing-windows';
     static SETTING_ENABLE_BLUR = "enable-blur";
+    static SETTING_ENABLE_MOVE_KEYBINDINGS = 'enable-move-keybindings';
 
     static SETTING_MOVE_WINDOW_RIGHT = 'move-window-right';
     static SETTING_MOVE_WINDOW_LEFT = 'move-window-left';
@@ -128,6 +130,14 @@ export default class Settings {
         return this._settings?.get_boolean(this.SETTING_ENABLE_BLUR) ?? false;
     }
 
+    static get_enable_move_keybindings(): boolean {
+        return this._settings?.get_boolean(this.SETTING_ENABLE_MOVE_KEYBINDINGS) ?? false;
+    }
+
+    static get_overridden_settings(): string {
+        return this._settings?.get_string(this.SETTING_OVERRIDDEN_SETTINGS) ?? '{}';
+    }
+
     static set_last_version_installed(version: string) {
         this._settings?.set_string(this.SETTING_LAST_VERSION_NAME_INSTALLED, version);
     }
@@ -142,6 +152,10 @@ export default class Settings {
 
     static set_show_indicator(value: boolean) {
         this._settings?.set_boolean(this.SETTING_SHOW_INDICATOR, value);
+    }
+
+    static set_overridden_settings(newVal: string): boolean {
+        return this._settings?.set_string(this.SETTING_OVERRIDDEN_SETTINGS, newVal) ?? false;
     }
 
     static reset_layouts_json() {

@@ -72,6 +72,16 @@
             <summary>Enable blur</summary>
             <description>Blur snap assistant and tile previews.</description>
         </key>
+        <key name="enable-move-keybindings" type="b">
+            <default>true</default>
+            <summary>Enable keybindings</summary>
+            <description>Move focused window through tiles by using keybindings.</description>
+        </key>
+        <key name="overridden-settings" type="s">
+            <default>'{}'</default>
+            <summary>Overridden settings</summary>
+            <description>The settings that are overridden and their old value.</description>
+        </key>
 
 		<key type="as" name="move-window-right">
 			<default><![CDATA[['<Super>Right']]]></default>

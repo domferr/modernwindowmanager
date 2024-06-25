@@ -7,6 +7,7 @@ import { buildMargin, buildRectangle, buildTileGaps, getScalingFactor, getScalin
 import TilingLayout from "@/components/tilingsystem/tilingLayout";
 import Clutter from "gi://Clutter";
 import GLib from "gi://GLib";
+import Gio from "gi://Gio";
 import SnapAssist from '../snapassist/snapAssist';
 import SelectionTilePreview from '../tilepreview/selectionTilePreview';
 import Settings, { ActivationKey } from '@/settings';
@@ -18,6 +19,7 @@ import GlobalState from '@/globalState';
 import { Monitor } from 'resource:///org/gnome/shell/ui/layout.js';
 import ExtendedWindow from "./extendedWindow";
 import { ResizingManager } from "./resizeManager";
+import SettingsOverride from "@settingsOverride";
 
 const EDGE_TILING_OFFSET = 15;
 
@@ -44,6 +46,7 @@ export class TilingManager {
 
     private _movingWindowTimerId: number | null = null;
 
+    //private readonly _settingsOverride: SettingsOverride;
     private readonly _signals: SignalHandling;
     private readonly _debug: (...content: any[]) => void;
 
@@ -60,6 +63,7 @@ export class TilingManager {
         this._enableScaling = enableScaling;
         this._monitor = monitor;
         this._signals = new SignalHandling();
+        //this._settingsOverride = new SettingsOverride();
         this._debug = logger(`TilingManager ${monitor.index}`);
         const layout: Layout = GlobalState.get().getSelectedLayoutOfMonitor(monitor.index);
 
@@ -128,6 +132,13 @@ export class TilingManager {
         });
 
         this._signals.connect(this._snapAssist, "snap-assist", this._onSnapAssist.bind(this));
+
+        // disable native edge tiling
+        /*this._settingsOverride.override(
+            new Gio.Settings({ schema_id: 'org.gnome.mutter' }), 
+            'edge-tiling', 
+            new GLib.Variant('b', false)
+        );*/
     }
 
     public onKeyboardMoveWindow(window: Meta.Window, direction: Meta.Direction) {
@@ -168,6 +179,9 @@ export class TilingManager {
         this._snapAssist.destroy();
         this._selectedTilesPreview.destroy();
         this._resizingManager.destroy();
+
+        // restore native edge tiling
+        //this._settingsOverride.restoreAll();
     }
 
     public set workArea(newWorkArea: Mtk.Rectangle) {
