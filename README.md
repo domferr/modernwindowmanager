@@ -54,7 +54,9 @@ The layout is not strict. You can select multiple tiles too! Just hold <kbd>ALT<
 
 ### Layout editor ###
 
-> <kbd>LEFT CLICK</kbd> to split a tile. <kbd>LEFT CLICK</kbd> + <kbd>CTRL</kbd> to split a tile _vertically_. <kbd>RIGHT CLICK</kbd> to delete a tile.
+| Split a tile | Split a tile _vertically_ | Delete a tile | Save, close the editor or open the menu |
+|:---:|:---:|:---:|:---:|
+| <kbd>LEFT CLICK</kbd> | <kbd>LEFT CLICK</kbd> + <kbd>CTRL</kbd> | <kbd>RIGHT CLICK</kbd> | Click the Tiling Shell's icon <img src="https://github.com/domferr/tilingshell/assets/14203981/13e27ec1-6a5d-420f-a87f-8f3df0b34c92" width=96 /> on the panel. |
 
 [layout_editor.webm](https://github.com/domferr/tilingshell/assets/14203981/c6e05589-69d9-4fa3-a4df-61ee875cf9e1)
 
