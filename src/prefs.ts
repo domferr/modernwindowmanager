@@ -399,7 +399,7 @@ export default class TilingShellExtensionPreferences extends ExtensionPreference
         try {
             Gio.DBus.session.call_sync(
                 'org.gnome.Shell',
-                '/org/gnome/shell/extensions/TilingShell',
+                '/org/gnome/Shell/Extensions/TilingShell',
                 'org.gnome.Shell.Extensions.TilingShell',
                 'openLayoutEditor',
                 null,
