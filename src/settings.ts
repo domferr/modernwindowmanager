@@ -21,7 +21,8 @@ export default class Settings {
     static SETTING_SELECTED_LAYOUTS = 'selected-layouts';
     static SETTING_RESTORE_WINDOW_ORIGINAL_SIZE = 'restore-window-original-size';
     static SETTING_RESIZE_COMPLEMENTING_WINDOWS = 'resize-complementing-windows';
-    static SETTING_ENABLE_BLUR = "enable-blur";
+    static SETTING_ENABLE_BLUR_SNAP_ASSISTANT = "enable-blur-snap-assistant";
+    static SETTING_ENABLE_BLUR_SELECTED_TILEPREVIEW = "enable-blur-selected-tilepreview";
     static SETTING_ENABLE_MOVE_KEYBINDINGS = 'enable-move-keybindings';
 
     static SETTING_MOVE_WINDOW_RIGHT = 'move-window-right';
@@ -43,8 +44,7 @@ export default class Settings {
         }
     }
 
-    static bind(key: string, object: GObject.Object, property: string, flags: Gio.SettingsBindFlags = Gio.SettingsBindFlags.DEFAULT): void {
-        //@ts-ignore
+    static bind(key: string, object: GObject.Object | any, property: string, flags: Gio.SettingsBindFlags = Gio.SettingsBindFlags.DEFAULT): void {
         this._settings?.bind(key, object, property, flags);
     }
 
@@ -126,8 +126,12 @@ export default class Settings {
         return Number(val[0]);
     }
 
-    static get_enable_blur(): boolean {
-        return this._settings?.get_boolean(this.SETTING_ENABLE_BLUR) ?? false;
+    static get_enable_blur_snap_assistant(): boolean {
+        return this._settings?.get_boolean(this.SETTING_ENABLE_BLUR_SNAP_ASSISTANT) ?? false;
+    }
+
+    static get_enable_blur_selected_tilepreview(): boolean {
+        return this._settings?.get_boolean(this.SETTING_ENABLE_BLUR_SELECTED_TILEPREVIEW) ?? false;
     }
 
     static get_enable_move_keybindings(): boolean {

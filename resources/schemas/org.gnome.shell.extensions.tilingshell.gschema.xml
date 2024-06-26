@@ -67,10 +67,15 @@
             <summary>Enable auto-resize of the complementing tiled windows</summary>
             <description>When a tiled window is resized, auto-resize the other tiled windows near it.</description>
         </key>
-        <key name="enable-blur" type="b">
+        <key name="enable-blur-snap-assistant" type="b">
             <default>false</default>
-            <summary>Enable blur</summary>
-            <description>Blur snap assistant and tile previews.</description>
+            <summary>Enable Snap Assistant blur</summary>
+            <description>Blur snap assistant</description>
+        </key>
+        <key name="enable-blur-selected-tilepreview" type="b">
+            <default>false</default>
+            <summary>Enable selected tile preview blur</summary>
+            <description>Blur selected tile previews</description>
         </key>
         <key name="enable-move-keybindings" type="b">
             <default>true</default>

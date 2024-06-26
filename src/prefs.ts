@@ -79,12 +79,22 @@ export default class TilingShellExtensionPreferences extends ExtensionPreference
         );
         appearenceGroup.add(outerGapsRow);
 
-        const blurRow = this._buildSwitchRow(
-            Settings.SETTING_ENABLE_BLUR,
-            "Blur (experimental feature)",
-            "Apply blur effect to Snap Assistant and tile previews."
-        );
-        appearenceGroup.add(blurRow);
+        const blur = new Adw.ExpanderRow({
+            title: "Blur (experimental feature)",
+            subtitle: "Apply blur effect to Snap Assistant and tile previews"
+        });
+        appearenceGroup.add(blur);
+        
+        blur.add_row(this._buildSwitchRow(
+            Settings.SETTING_ENABLE_BLUR_SNAP_ASSISTANT,
+            "Snap Assistant",
+            "Apply blur effect to Snap Assistant"
+        ));
+        blur.add_row(this._buildSwitchRow(
+            Settings.SETTING_ENABLE_BLUR_SELECTED_TILEPREVIEW,
+            "Selected tile preview",
+            "Apply blur effect to selected tile preview"
+        ));
 
         // Behaviour section
         const behaviourGroup = new Adw.PreferencesGroup({

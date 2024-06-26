@@ -5,7 +5,7 @@ import Mtk from "gi://Mtk";
 import St from "gi://St";
 import Gio from "gi://Gio";
 import { logger } from "@/utils/shell";
-import GObject, { MetaInfo } from "gi://GObject";
+import GObject from "gi://GObject";
 import SnapAssistTile from "./snapAssistTile";
 import SnapAssistLayout from "./snapAssistLayout";
 import Layout from "../layout/Layout";
@@ -22,7 +22,7 @@ const debug = logger("snapAssist");
 
 @registerGObjectClass
 class SnapAssistContent extends St.BoxLayout {
-    static metaInfo: MetaInfo = {
+    static metaInfo: GObject.MetaInfo<any, any, any> = {
         GTypeName: "SnapAssistContent",
         Properties: {
             'blur': GObject.ParamSpec.boolean(
@@ -69,8 +69,8 @@ class SnapAssistContent extends St.BoxLayout {
         this._showing = true;
         this._bottomPadding = 0;
         this._blur = false;
-        //@ts-ignore
-        Settings.bind(Settings.SETTING_ENABLE_BLUR, this, "blur", Gio.SettingsBindFlags.GET);
+        
+        Settings.bind(Settings.SETTING_ENABLE_BLUR_SNAP_ASSISTANT, this, "blur", Gio.SettingsBindFlags.GET);
 
         this._applyStyle();
         this._signals.connect(St.ThemeContext.get_for_stage(global.get_stage()), "changed", () => {
@@ -261,7 +261,7 @@ class SnapAssistContent extends St.BoxLayout {
 
 @registerGObjectClass
 export default class SnapAssist extends St.Widget {
-    static metaInfo: MetaInfo = {
+    static metaInfo: GObject.MetaInfo<any, any, any> = {
         GTypeName: "SnapAssist",
         Signals: {
             "snap-assist": { 

@@ -188,10 +188,15 @@ export class TilingManager {
         if (this._isGrabbingWindow) return;
 
         // workaround for gnome-shell bug https://gitlab.gnome.org/GNOME/gnome-shell/-/issues/2857
-        if (Settings.get_enable_blur()) {
+        if (Settings.get_enable_blur_snap_assistant() 
+            || Settings.get_enable_blur_selected_tilepreview()) {
             this._signals.connect(window, 'position-changed', () => {
-                this._selectedTilesPreview.get_effect("blur")?.queue_repaint();
-                this._snapAssist.get_first_child()?.get_effect("blur")?.queue_repaint();
+                if (Settings.get_enable_blur_selected_tilepreview()) {
+                    this._selectedTilesPreview.get_effect("blur")?.queue_repaint();
+                }
+                if (Settings.get_enable_blur_snap_assistant()) {
+                    this._snapAssist.get_first_child()?.get_effect("blur")?.queue_repaint();
+                }
             });
         }
 

@@ -3,7 +3,7 @@ import Gio from 'gi://Gio';
 import Meta from 'gi://Meta';
 import Shell from 'gi://Shell';
 import GLib from 'gi://GLib';
-import GObject, { MetaInfo } from 'gi://GObject';
+import GObject from 'gi://GObject';
 import Settings from '@settings';
 import SettingsOverride from '@settingsOverride';
 import SignalHandling from '@signalHandling';
@@ -14,7 +14,7 @@ const debug = logger("KeyBindings");
 
 @registerGObjectClass
 export default class KeyBindings extends GObject.Object {    
-    static metaInfo: MetaInfo = {
+    static metaInfo: GObject.MetaInfo<any, any, any> = {
         GTypeName: "KeyBindings",
         Signals: {
             'move-window': { 

@@ -2,19 +2,17 @@ import { registerGObjectClass } from "@/utils/gjs";
 import Clutter from 'gi://Clutter';
 import St from 'gi://St';
 import Gio from 'gi://Gio';
-import Meta from 'gi://Meta';
-import Mtk from 'gi://Mtk';
 import TilePreview from "./tilePreview";
 import { logger } from "@/utils/shell";
 import Settings from "@settings";
-import GObject, { MetaInfo } from "gi://GObject";
+import GObject from "gi://GObject";
 import { buildBlurEffect } from "@utils/ui";
 
 const debug = logger("SelectionTilePreview");
 
 @registerGObjectClass
 export default class SelectionTilePreview extends TilePreview {
-  static metaInfo: MetaInfo = {
+  static metaInfo: GObject.MetaInfo<any, any, any> = {
     GTypeName: "SelectionTilePreview",
     Properties: {
         'blur': GObject.ParamSpec.boolean(
@@ -35,8 +33,8 @@ export default class SelectionTilePreview extends TilePreview {
     super({ parent: params.parent, name: "SelectionTilePreview" });
 
     this._blur = false;
-    //@ts-ignore
-    Settings.bind(Settings.SETTING_ENABLE_BLUR, this, "blur", Gio.SettingsBindFlags.GET);
+    
+    Settings.bind(Settings.SETTING_ENABLE_BLUR_SELECTED_TILEPREVIEW, this, "blur", Gio.SettingsBindFlags.GET);
 
     this._recolor();
     const styleChangedSignalID = St.ThemeContext.get_for_stage(global.get_stage()).connect("changed", () => {

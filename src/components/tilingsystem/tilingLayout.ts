@@ -3,7 +3,6 @@ import { logger } from "@/utils/shell";
 import { registerGObjectClass } from "@/utils/gjs";
 import Mtk from 'gi://Mtk';
 import Clutter from 'gi://Clutter';
-import GObject, { MetaInfo } from 'gi://GObject';
 import TilePreview, { WINDOW_ANIMATION_TIME, TilePreviewConstructorProperties } from '../tilepreview/tilePreview';
 import LayoutWidget from '../layout/LayoutWidget';
 import Layout from '../layout/Layout';
