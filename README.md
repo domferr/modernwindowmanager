@@ -66,6 +66,20 @@ You can resize adjacent tiled windows together!
 
 > It can be enabled/disabled from the preferences
 
+### Tile using Keyboard ###
+
+Move window through the tiles using keyboard shortcuts (<kbd>SUPER</kbd>+<kbd>←</kbd>/<kbd>↑</kbd>/<kbd>↓</kbd>/<kbd>→</kbd>). They can be customized from the preferences!
+
+[Screencast from 2024-06-18 23-06-56.webm](https://github.com/domferr/tilingshell/assets/14203981/11c966b7-c140-4ecb-b8af-b514ec186ad6)
+
+> It can be enabled/disabled from the preferences
+
+### Edge Tiling ###
+
+You can tile a window by moving it to the edge.
+
+[Screencast from 2024-06-22 22-12-22.webm](https://github.com/domferr/tilingshell/assets/14203981/6e5a2ba9-cd38-44bb-b791-51e41e07f7a0)
+
 ## Installation
 
 This extension is published on [extensions.gnome.org](https://extensions.gnome.org/extension/7065/tiling-shell/)! You can install from there or install manually. By installing from [extensions.gnome.org](https://extensions.gnome.org/extension/7065/tiling-shell/) you will always have the latest update.
