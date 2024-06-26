@@ -1,6 +1,5 @@
 import Meta from "gi://Meta";
 import Mtk from "gi://Mtk";
-import St from "gi://St";
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import { logger } from "@/utils/shell";
 import { buildMargin, buildRectangle, buildTileGaps, getScalingFactor, getScalingFactorOf, isPointInsideRect } from "@/utils/ui";
@@ -46,7 +45,6 @@ export class TilingManager {
 
     private _movingWindowTimerId: number | null = null;
 
-    //private readonly _settingsOverride: SettingsOverride;
     private readonly _signals: SignalHandling;
     private readonly _debug: (...content: any[]) => void;
 
@@ -63,7 +61,7 @@ export class TilingManager {
         this._enableScaling = enableScaling;
         this._monitor = monitor;
         this._signals = new SignalHandling();
-        //this._settingsOverride = new SettingsOverride();
+        
         this._debug = logger(`TilingManager ${monitor.index}`);
         const layout: Layout = GlobalState.get().getSelectedLayoutOfMonitor(monitor.index);
 
@@ -132,13 +130,6 @@ export class TilingManager {
         });
 
         this._signals.connect(this._snapAssist, "snap-assist", this._onSnapAssist.bind(this));
-
-        // disable native edge tiling
-        /*this._settingsOverride.override(
-            new Gio.Settings({ schema_id: 'org.gnome.mutter' }), 
-            'edge-tiling', 
-            new GLib.Variant('b', false)
-        );*/
     }
 
     public onKeyboardMoveWindow(window: Meta.Window, direction: Meta.Direction) {
@@ -179,9 +170,6 @@ export class TilingManager {
         this._snapAssist.destroy();
         this._selectedTilesPreview.destroy();
         this._resizingManager.destroy();
-
-        // restore native edge tiling
-        //this._settingsOverride.restoreAll();
     }
 
     public set workArea(newWorkArea: Mtk.Rectangle) {

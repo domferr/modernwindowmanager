@@ -158,6 +158,22 @@ export default class Settings {
         return this._settings?.set_string(this.SETTING_OVERRIDDEN_SETTINGS, newVal) ?? false;
     }
 
+    static set_kb_move_window_right(newVal: string): boolean {
+        return this._settings?.set_strv(this.SETTING_MOVE_WINDOW_RIGHT, [newVal]) ?? false;
+    }
+
+    static set_kb_move_window_left(newVal: string): boolean {
+        return this._settings?.set_strv(this.SETTING_MOVE_WINDOW_LEFT, [newVal]) ?? false;
+    }
+
+    static set_kb_move_window_up(newVal: string): boolean {
+        return this._settings?.set_strv(this.SETTING_MOVE_WINDOW_UP, [newVal]) ?? false;
+    }
+
+    static set_kb_move_window_down(newVal: string): boolean {
+        return this._settings?.set_strv(this.SETTING_MOVE_WINDOW_DOWN, [newVal]) ?? false;
+    }
+
     static reset_layouts_json() {
         this.save_layouts_json([
             new Layout([
@@ -189,6 +205,22 @@ export default class Settings {
 
     static save_selected_layouts_json(ids: string[]) {
         this._settings?.set_strv(Settings.SETTING_SELECTED_LAYOUTS, ids);
+    }
+
+    static get_kb_move_window_right(): string {
+        return this._settings?.get_strv(this.SETTING_MOVE_WINDOW_RIGHT)[0] ?? '';
+    }
+
+    static get_kb_move_window_left(): string {
+        return this._settings?.get_strv(this.SETTING_MOVE_WINDOW_LEFT)[0] ?? '';
+    }
+
+    static get_kb_move_window_up(): string {
+        return this._settings?.get_strv(this.SETTING_MOVE_WINDOW_UP)[0] ?? '';
+    }
+
+    static get_kb_move_window_down(): string {
+        return this._settings?.get_strv(this.SETTING_MOVE_WINDOW_DOWN)[0] ?? '';
     }
 
     static connect(key: string, func: (...arg: any[]) => void) : number {

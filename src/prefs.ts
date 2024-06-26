@@ -3,6 +3,7 @@ import Adw from "gi://Adw";
 import Gio from "gi://Gio";
 import GLib from "gi://GLib";
 import Gdk from "gi://Gdk";
+import GObject from "gi://GObject";
 import Settings, { ActivationKey } from "./settings";
 import { logger } from "./utils/shell";
 import { ExtensionPreferences } from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
@@ -103,7 +104,7 @@ export default class TilingShellExtensionPreferences extends ExtensionPreference
             Settings.SETTING_TILING_SYSTEM,
             "Enable Tiling System",
             "Hold the activation key while moving a window to tile it",
-            this._buildShortcutButton(
+            this._buildActivationKeysDropDown(
                 Settings.get_tiling_system_activation_key(),
                 (newVal: ActivationKey) => Settings.set_tiling_system_activation_key(newVal)
             )
@@ -114,7 +115,7 @@ export default class TilingShellExtensionPreferences extends ExtensionPreference
             Settings.SETTING_SPAN_MULTIPLE_TILES,
             "Span multiple tiles",
             "Hold the activation key to span multiple tiles",
-            this._buildShortcutButton(
+            this._buildActivationKeysDropDown(
                 Settings.get_span_multiple_tiles_activation_key(),
                 (newVal: ActivationKey) => Settings.set_span_multiple_tiles_activation_key(newVal)
             )
@@ -134,13 +135,6 @@ export default class TilingShellExtensionPreferences extends ExtensionPreference
             "Whether to restore the windows to their original size when untiled"
         );
         behaviourGroup.add(restoreToOriginalSizeRow);
-
-        const keybindingsRow = this._buildSwitchRow(
-            Settings.SETTING_ENABLE_MOVE_KEYBINDINGS,
-            "Enable keybindings",
-            "Override Super + ←↑↓→ to follow your selected layout, instead of GNOME's default 2 columns"
-        );
-        behaviourGroup.add(keybindingsRow);
 
         // Layouts section
         const layoutsGroup = new Adw.PreferencesGroup({
@@ -269,6 +263,48 @@ export default class TilingShellExtensionPreferences extends ExtensionPreference
             "destructive-action"
         );
         layoutsGroup.add(resetBtn);
+
+        // Keybindings section        
+        const keybindingsGroup = new Adw.PreferencesGroup({
+            title: 'Keybindings',
+            description: `Use hotkeys to move the focused window through the tiles of the active layout`,
+            headerSuffix: new Gtk.Switch({ vexpand: false, valign: Gtk.Align.CENTER })
+        });
+        //@ts-ignore
+        Settings.bind(Settings.SETTING_ENABLE_MOVE_KEYBINDINGS, keybindingsGroup.headerSuffix, 'active');
+        prefsPage.add(keybindingsGroup);
+        
+        const moveRightKB = this._buildShortcutButtonRow(
+            Settings.get_kb_move_window_right(),
+            "Move window to right tile",
+            "Move the focused window to the tile on its right",
+            (_: any, value: string) => Settings.set_kb_move_window_right(value)
+        );
+        keybindingsGroup.add(moveRightKB);
+        
+        const moveLeftKB = this._buildShortcutButtonRow(
+            Settings.get_kb_move_window_left(),
+            "Move window to left tile",
+            "Move the focused window to the tile on its left",
+            (_: any, value: string) => Settings.set_kb_move_window_left(value)
+        );
+        keybindingsGroup.add(moveLeftKB);
+        
+        const moveUpKB = this._buildShortcutButtonRow(
+            Settings.get_kb_move_window_up(),
+            "Move window to tile above",
+            "Move the focused window to the tile above",
+            (_: any, value: string) => Settings.set_kb_move_window_up(value)
+        );
+        keybindingsGroup.add(moveUpKB);
+        
+        const moveDownKB = this._buildShortcutButtonRow(
+            Settings.get_kb_move_window_down(),
+            "Move window to tile below",
+            "Move the focused window to the tile below",
+            (_: any, value: string) => Settings.set_kb_move_window_down(value)
+        );
+        keybindingsGroup.add(moveDownKB);
         
         // footer
         const footerGroup = new Adw.PreferencesGroup();
@@ -371,7 +407,7 @@ export default class TilingShellExtensionPreferences extends ExtensionPreference
         }
     }
 
-    _buildShortcutButton(value: ActivationKey, onSelected: (v: ActivationKey) => void, styleClass?: string) {
+    _buildActivationKeysDropDown(value: ActivationKey, onSelected: (v: ActivationKey) => void, styleClass?: string) {
         const options = new Gtk.StringList();
         const activationKeys = [
             ActivationKey.CTRL,
@@ -405,17 +441,37 @@ export default class TilingShellExtensionPreferences extends ExtensionPreference
         });
         return btn;
     }
+
+    _buildShortcutButtonRow(shortcut: string, title: string, subtitle: string, onChange: (_: any, value: string) => void, styleClass?: string) {
+        const btn = new ShortcutSettingButton(shortcut);
+        if (styleClass) btn.add_css_class(styleClass);
+        btn.set_vexpand(false);
+        btn.set_valign(Gtk.Align.CENTER);
+        const adwRow = new Adw.ActionRow({
+            title: title,
+            subtitle: subtitle,
+            activatableWidget: btn
+        });
+        adwRow.add_suffix(btn);
+
+        btn.connect("changed", onChange);
+
+        return adwRow;
+    }
 }
 
-//@ts-ignore
-/*const genParam = (type: string, name: string, ...dflt: any[]) => GObject.ParamSpec[type](name, name, name, GObject.ParamFlags.READWRITE, ...dflt);
-
+// eslint-disable-next-line no-unused-vars
 const ShortcutSettingButton = class extends Gtk.Button {
-    
     static {
         GObject.registerClass({
             Properties: {
-                shortcut: genParam('string', 'shortcut', ''),
+                shortcut: GObject.ParamSpec.string(
+                    'shortcut',
+                    'shortcut',
+                    'The shortcut',
+                    GObject.ParamFlags.READWRITE,
+                    ''
+                )
             },
             Signals: {
                 changed: { param_types: [GObject.TYPE_STRING] },
@@ -425,8 +481,9 @@ const ShortcutSettingButton = class extends Gtk.Button {
 
     private _editor: Adw.Window | null;
     private _label: Gtk.ShortcutLabel;
+    private shortcut: string;
 
-    constructor() {
+    constructor(value: string) {
         super({
             halign: Gtk.Align.CENTER,
             hexpand: false,
@@ -446,16 +503,9 @@ const ShortcutSettingButton = class extends Gtk.Button {
 
         // Bind signals
         this.connect('clicked', this._onActivated.bind(this));
+        this.shortcut = value;
+        this._label.set_accelerator(this.shortcut);
         this.bind_property('shortcut', this._label, 'accelerator', GObject.BindingFlags.DEFAULT);
-        this.shortcut = '';
-    }
-
-    isAcceleratorSet() {
-        if(this._label.get_accelerator()) {
-            return true;
-        } else {
-            return false;
-        }
     }
 
     _onActivated(widget: Gtk.Widget) {
@@ -499,15 +549,15 @@ const ShortcutSettingButton = class extends Gtk.Button {
             return Gdk.EVENT_STOP;
         } else {
             this.shortcut = Gtk.accelerator_name_with_keycode(null, keyval, keycode, mask);
+            this._label.set_accelerator(this.shortcut);
+            this.emit('changed', this.shortcut);
         }
 
-        this.emit('changed', this.shortcut);
         this._editor?.destroy();
         return Gdk.EVENT_STOP;
     }
 
     // Functions from https://gitlab.gnome.org/GNOME/gnome-control-center/-/blob/main/panels/keyboard/keyboard-shortcuts.c
-
     keyvalIsForbidden(keyval: number) {
         return [
             // Navigation keys
@@ -549,7 +599,7 @@ const ShortcutSettingButton = class extends Gtk.Button {
     isValidAccel(mask: number, keyval: number) {
         return Gtk.accelerator_valid(keyval, mask) || (keyval === Gdk.KEY_Tab && mask !== 0);
     }
-};*/
+};
 
 /*class LayoutWidget extends Gtk.DrawingArea {
     private _layout: Layout;

@@ -23,13 +23,11 @@ export default class KeyBindings extends GObject.Object {
         }
     }
 
-    private _settingsOvverride: SettingsOverride;
     private _signals: SignalHandling;
 
     constructor(extensionSettings: Gio.Settings) {
         super();
 
-        this._settingsOvverride = new SettingsOverride();
         this._signals = new SignalHandling();
         
         this._signals.connect(Settings, Settings.SETTING_ENABLE_MOVE_KEYBINDINGS, () => {
@@ -71,14 +69,11 @@ export default class KeyBindings extends GObject.Object {
     }
 
     private _removeKeybindings() {
+        SettingsOverride.get().restoreAll();
         Main.wm.removeKeybinding(Settings.SETTING_MOVE_WINDOW_RIGHT);
         Main.wm.removeKeybinding(Settings.SETTING_MOVE_WINDOW_LEFT);
         Main.wm.removeKeybinding(Settings.SETTING_MOVE_WINDOW_UP);
         Main.wm.removeKeybinding(Settings.SETTING_MOVE_WINDOW_DOWN);
-
-        if (this._settingsOvverride) {
-            this._settingsOvverride.restoreAll();
-        }
     }
 
     private _overrideKeyBinding(
@@ -88,9 +83,9 @@ export default class KeyBindings extends GObject.Object {
         nativeSettings: Gio.Settings, 
         nativeKeyName: string
     ) {
-        if (!this._settingsOvverride) return;
-
-        const done = this._settingsOvverride.override(nativeSettings, nativeKeyName, new GLib.Variant('as', []));
+        const done = SettingsOverride.get().override(
+            nativeSettings, nativeKeyName, new GLib.Variant('as', [])
+        );
         if (!done) {
             debug(`failed to override ${nativeKeyName}`);
             return;

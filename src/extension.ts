@@ -5,6 +5,7 @@ import { getMonitors } from '@/utils/ui';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import { TilingManager } from "@/components/tilingsystem/tilingManager";
 import Gio from 'gi://Gio';
+import GLib from 'gi://GLib';
 import Meta from 'gi://Meta';
 import Settings from '@/settings';
 import SignalHandling from './signalHandling';
@@ -13,8 +14,8 @@ import Indicator from './indicator/indicator';
 import { Extension, ExtensionMetadata } from 'resource:///org/gnome/shell/extensions/extension.js';
 import DBus from './dbus';
 import KeyBindings from './keybindings';
+import SettingsOverride from '@settingsOverride';
 
-const SIGNAL_WORKAREAS_CHANGED = 'workareas-changed';
 const debug = logger('extension');
 
 export default class TilingShellExtension extends Extension {
@@ -77,7 +78,9 @@ export default class TilingShellExtension extends Extension {
     Settings.initialize(this.getSettings());
     this._validateSettings();
 
-    this._fractionalScalingEnabled = this._isFractionalScalingEnabled(new Gio.Settings({ schema: 'org.gnome.mutter' }));
+    this._fractionalScalingEnabled = this._isFractionalScalingEnabled(
+      new Gio.Settings({ schema: 'org.gnome.mutter' })
+    );
     
     if (this._keybindings) this._keybindings.destroy();
     this._keybindings = new KeyBindings(this.getSettings());
@@ -98,6 +101,13 @@ export default class TilingShellExtension extends Extension {
     if (this._dbus) this._dbus.disable();
     this._dbus = new DBus();
     this._dbus.enable(this);
+
+    // disable native edge tiling
+    SettingsOverride.get().override(
+      new Gio.Settings({ schema_id: 'org.gnome.mutter' }), 
+      'edge-tiling', 
+      new GLib.Variant('b', false)
+    );
     
     debug('extension is enabled');
   }
@@ -116,7 +126,7 @@ export default class TilingShellExtension extends Extension {
   private _setupSignals() {
     if (!this._signals) return;
 
-    this._signals.connect(global.display, SIGNAL_WORKAREAS_CHANGED, () => {
+    this._signals.connect(global.display, 'workareas-changed', () => {
       const allMonitors = getMonitors();
       if (this._tilingManagers.length !== allMonitors.length) {
         // a monitor was disconnected or a new one was connected
@@ -179,6 +189,10 @@ export default class TilingShellExtension extends Extension {
   }
 
   disable(): void {
+    // bring back overridden keybindings
+    if (this._keybindings) this._keybindings.destroy();
+    this._keybindings = null;
+
     // destroy indicator
     this._indicator?.destroy();
     this._indicator = null;
@@ -195,13 +209,15 @@ export default class TilingShellExtension extends Extension {
     if (this._dbus) this._dbus.disable();
     this._dbus = null;
 
-    // bring back overridden keybindings
-    if (this._keybindings) this._keybindings.destroy();
-    this._keybindings = null;
-
     // destroy state and settings
     GlobalState.destroy();
     Settings.destroy();
+
+    // restore native edge tiling
+    SettingsOverride.get().restoreKey(
+      new Gio.Settings({ schema_id: 'org.gnome.mutter' }), 
+      'edge-tiling'
+    );
 
     this._fractionalScalingEnabled = false;
     debug('extension is disabled');
