@@ -30,10 +30,12 @@ export const positionRelativeTo = (actor: Clutter.Actor, anchestor: Clutter.Acto
 }
 
 export const buildTileGaps = (tilePos: Mtk.Rectangle, innerGaps: Clutter.Margin, outerGaps: Clutter.Margin, container: Mtk.Rectangle, scalingFactor: number = 1): Clutter.Margin => {
-    const isLeft = tilePos.x === container.x;
-    const isTop = tilePos.y === container.y;
-    const isRight = tilePos.x + tilePos.width === container.x + container.width;
-    const isBottom = tilePos.y + tilePos.height === container.y + container.height;
+    // compare two values and return true if their are equal with a max error of 2
+    const almostEqual = (first: number, second: number) => Math.abs(first - second) <= 1; 
+    const isLeft = almostEqual(tilePos.x, container.x);
+    const isTop = almostEqual(tilePos.y, container.y);
+    const isRight = almostEqual(tilePos.x + tilePos.width, container.x + container.width);
+    const isBottom = almostEqual(tilePos.y + tilePos.height, container.y + container.height);
     const margin = new Clutter.Margin();
     margin.top = (isTop ? outerGaps.top:innerGaps.top/2) * scalingFactor;
     margin.bottom = (isBottom ? outerGaps.bottom:innerGaps.bottom/2) * scalingFactor;
