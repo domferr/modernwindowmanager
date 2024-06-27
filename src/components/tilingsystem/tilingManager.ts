@@ -28,7 +28,6 @@ export class TilingManager {
     private _selectedTilesPreview: SelectionTilePreview;
     private _snapAssist: SnapAssist;
     private _tilingLayout: TilingLayout;
-    private _resizingManager: ResizingManager;
 
     private _workArea: Mtk.Rectangle;
     private _innerGaps: Clutter.Margin;
@@ -82,8 +81,6 @@ export class TilingManager {
 
         // build the snap assistant
         this._snapAssist = new SnapAssist(Main.uiGroup, this._workArea, monitorScalingFactor);
-
-        this._resizingManager = new ResizingManager();
     }
 
     /**
@@ -114,7 +111,7 @@ export class TilingManager {
         this._signals.connect(global.display, 'grab-op-begin', (_display: Meta.Display, window: Meta.Window, grabOp: Meta.GrabOp) => {
             const moving = (grabOp & ~1024) === 1;
             if (!moving) {
-                this._resizingManager.onWindowResizingBegin(window, grabOp);
+                //this._resizingManager.onWindowResizingBegin(window, grabOp);
                 return;
             }
             
@@ -123,7 +120,7 @@ export class TilingManager {
 
         this._signals.connect(global.display, 'grab-op-end', (_display: Meta.Display, window: Meta.Window, grabOp: Meta.GrabOp) => {
             if (!this._isGrabbingWindow) {
-                this._resizingManager.onWindowResizingEnd(window);
+                //this._resizingManager.onWindowResizingEnd(window);
                 return;
             }
             this._onWindowGrabEnd(window);
@@ -169,7 +166,6 @@ export class TilingManager {
         this._tilingLayout.destroy();
         this._snapAssist.destroy();
         this._selectedTilesPreview.destroy();
-        this._resizingManager.destroy();
     }
 
     public set workArea(newWorkArea: Mtk.Rectangle) {

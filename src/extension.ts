@@ -15,6 +15,7 @@ import { Extension, ExtensionMetadata } from 'resource:///org/gnome/shell/extens
 import DBus from './dbus';
 import KeyBindings from './keybindings';
 import SettingsOverride from '@settingsOverride';
+import { ResizingManager } from '@components/tilingsystem/resizeManager';
 
 const debug = logger('extension');
 
@@ -25,6 +26,7 @@ export default class TilingShellExtension extends Extension {
   private _dbus: DBus | null;
   private _signals: SignalHandling | null;
   private _keybindings: KeyBindings | null;
+  private _resizingManager: ResizingManager | null;
 
   constructor(metadata: ExtensionMetadata) {
     super(metadata);
@@ -34,6 +36,7 @@ export default class TilingShellExtension extends Extension {
     this._indicator = null;
     this._dbus = null;
     this._keybindings = null;
+    this._resizingManager = null;
   }
 
   createIndicator() {
@@ -95,6 +98,9 @@ export default class TilingShellExtension extends Extension {
       this._createTilingManagers();
       this._setupSignals();
     }
+    
+    this._resizingManager = new ResizingManager();
+    this._resizingManager.enable();
 
     this.createIndicator();
 
@@ -190,7 +196,7 @@ export default class TilingShellExtension extends Extension {
 
   disable(): void {
     // bring back overridden keybindings
-    if (this._keybindings) this._keybindings.destroy();
+    this._keybindings?.destroy();
     this._keybindings = null;
 
     // destroy indicator
@@ -202,11 +208,14 @@ export default class TilingShellExtension extends Extension {
     this._tilingManagers = [];
 
     // disconnect signals
-    if (this._signals) this._signals.disconnect();
+    this._signals?.disconnect();
     this._signals = null;
 
+    this._resizingManager?.destroy();
+    this._resizingManager = null;
+
     // disable dbus
-    if (this._dbus) this._dbus.disable();
+    this._dbus?.disable();
     this._dbus = null;
 
     // destroy state and settings
