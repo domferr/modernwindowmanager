@@ -130,9 +130,28 @@ export class TilingManager {
     }
 
     public onKeyboardMoveWindow(window: Meta.Window, direction: Meta.Direction) {
-        const windowRect = window.get_frame_rect().copy();
-        
-        const destinationRect = this._tilingLayout.getNearestTile(windowRect, direction);
+        let destinationRect: Mtk.Rectangle | undefined = undefined;
+        if (window.get_maximized()) {
+            switch (direction) {
+                case Meta.Direction.DOWN:
+                    window.unmaximize(Meta.MaximizeFlags.BOTH);
+                    return;
+                case Meta.Direction.UP:
+                    return;
+                case Meta.Direction.LEFT:
+                    destinationRect = this._tilingLayout.getLeftmostTile();
+                    break;
+                case Meta.Direction.RIGHT:
+                    destinationRect = this._tilingLayout.getRightmostTile();
+                    break;
+            }
+        }
+
+        const windowRect = window.get_frame_rect().copy();        
+        if (!destinationRect) {
+            destinationRect = this._tilingLayout.getNearestTile(windowRect, direction);
+        }
+
         if (!destinationRect) {
             // handle maximize of window
             if (direction === Meta.Direction.UP && window.can_maximize()) {
@@ -141,7 +160,7 @@ export class TilingManager {
             return;
         }
 
-        if (!(window as ExtendedWindow).isTiled) {
+        if (!(window as ExtendedWindow).isTiled && !window.get_maximized()) {
             (window as ExtendedWindow).originalSize = windowRect;
         }
         (window as ExtendedWindow).isTiled = true;
@@ -248,13 +267,14 @@ export class TilingManager {
         // it is the first time the window is moved. If that's the case, change 
         // window's size to the size it had before it were tiled (the originalSize)
         if (extWin.originalSize) {
-            const newSize = buildRectangle({ 
-                x: window.get_frame_rect().x, 
-                y: window.get_frame_rect().y, 
-                width: extWin.originalSize.width, 
-                height: extWin.originalSize.height 
-            });
             if (Settings.get_restore_window_original_size()) {
+                //if (window.get_maximized()) window.unmaximize(Meta.MaximizeFlags.BOTH);
+                const newSize = buildRectangle({ 
+                    x: window.get_frame_rect().x, 
+                    y: window.get_frame_rect().y, 
+                    width: extWin.originalSize.width, 
+                    height: extWin.originalSize.height 
+                });
                 this._easeWindowRect(window, newSize);
             }
             extWin.originalSize = undefined;
