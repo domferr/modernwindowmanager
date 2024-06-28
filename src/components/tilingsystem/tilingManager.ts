@@ -115,7 +115,7 @@ export class TilingManager {
                 return;
             }
             
-            this._onWindowGrabBegin(window);
+            this._onWindowGrabBegin(window, grabOp);
         });
 
         this._signals.connect(global.display, 'grab-op-end', (_display: Meta.Display, window: Meta.Window, grabOp: Meta.GrabOp) => {
@@ -199,7 +199,7 @@ export class TilingManager {
         this._snapAssist.workArea = this._workArea;
     }
 
-    private _onWindowGrabBegin(window: Meta.Window) {
+    private _onWindowGrabBegin(window: Meta.Window, grabOp: number) {
         if (this._isGrabbingWindow) return;
 
         // workaround for gnome-shell bug https://gitlab.gnome.org/GNOME/gnome-shell/-/issues/2857
@@ -219,10 +219,10 @@ export class TilingManager {
         this._movingWindowTimerId = GLib.timeout_add(
             GLib.PRIORITY_DEFAULT_IDLE,
             this._movingWindowTimerDuration,
-            this._onMovingWindow.bind(this, window)
+            this._onMovingWindow.bind(this, window, grabOp)
         );
 
-        this._onMovingWindow(window);
+        this._onMovingWindow(window, grabOp);
     }
 
     private _activationKeyStatus(modifier: number, key: ActivationKey): boolean {
@@ -243,7 +243,7 @@ export class TilingManager {
         return (modifier & 1 << val) != 0;
     }
 
-    private _onMovingWindow(window: Meta.Window) {
+    private _onMovingWindow(window: Meta.Window, grabOp: number) {
         // if the window is no longer grabbed, disable handler
         if (!this._isGrabbingWindow) {
             this._movingWindowTimerId = null;
@@ -261,6 +261,7 @@ export class TilingManager {
             return GLib.SOURCE_CONTINUE;
         }
 
+        const [x, y, modifier] = global.get_pointer();
         const extWin = window as ExtendedWindow;
         extWin.isTiled = false;
         // if there is "originalSize" attached, it means the window were tiled and 
@@ -268,19 +269,49 @@ export class TilingManager {
         // window's size to the size it had before it were tiled (the originalSize)
         if (extWin.originalSize) {
             if (Settings.get_restore_window_original_size()) {
-                //if (window.get_maximized()) window.unmaximize(Meta.MaximizeFlags.BOTH);
+                const windowRect = window.get_frame_rect();
+                const offsetX = (x - windowRect.x) / windowRect.width;
+                const offsetY = (y - windowRect.y) / windowRect.height;
+
                 const newSize = buildRectangle({ 
-                    x: window.get_frame_rect().x, 
-                    y: window.get_frame_rect().y, 
+                    x: x - (extWin.originalSize.width * offsetX),
+                    y: y - (extWin.originalSize.height * offsetY),
                     width: extWin.originalSize.width, 
                     height: extWin.originalSize.height 
                 });
-                this._easeWindowRect(window, newSize);
+                
+                // restart grab for GNOME 42
+                //@ts-ignore
+                const restartGrab = global.display.end_grab_op && global.display.begin_grab_op;
+                if (restartGrab) {
+                    //@ts-ignore
+                    global.display.end_grab_op(global.get_current_time());
+                }
+                // if we restarted the grab, we need to force window movement and to
+                // perform user operation
+                this._easeWindowRect(window, newSize, restartGrab, restartGrab);
+                
+                if (restartGrab) {
+                    // must be done now, before begin_grab_op, because begin_grab_op will trigger
+                    // _onMovingWindow again, so we will go into infinite loop on restoring the window size
+                    extWin.originalSize = undefined;
+                    //@ts-ignore
+                    global.display.begin_grab_op(
+                        window,
+                        grabOp,
+                        true,       // pointer already grabbed
+                        true,       // frame action
+                        -1,         // Button
+                        modifier,
+                        global.get_current_time(),
+                        x,
+                        y,
+                    );
+                }
             }
             extWin.originalSize = undefined;
         }
 
-        const [x, y, modifier] = global.get_pointer();
         const currPointerPos = { x, y };
         
         const isSpanMultiTilesActivated = this._activationKeyStatus(modifier, Settings.get_span_multiple_tiles_activation_key());
@@ -414,7 +445,7 @@ export class TilingManager {
         this._easeWindowRect(window, selectionRect);
     }
 
-    private _easeWindowRect(window: Meta.Window, destRect: Mtk.Rectangle) {
+    private _easeWindowRect(window: Meta.Window, destRect: Mtk.Rectangle, user_op: boolean = false, force: boolean = false) {
         // apply animations when tiling the window
         const windowActor = window.get_compositor_private();
         // @ts-ignore
@@ -429,8 +460,9 @@ export class TilingManager {
         
         // move and resize the window to the current selection
         window.move_to_monitor(this._monitor.index);
+        if (force) window.move_frame(user_op, destRect.x, destRect.y);
         window.move_resize_frame(
-            false,
+            user_op,
             destRect.x,
             destRect.y,
             destRect.width,
