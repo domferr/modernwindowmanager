@@ -6,7 +6,6 @@ import { buildMargin, buildRectangle, buildTileGaps, getScalingFactor, getScalin
 import TilingLayout from "@/components/tilingsystem/tilingLayout";
 import Clutter from "gi://Clutter";
 import GLib from "gi://GLib";
-import Gio from "gi://Gio";
 import SnapAssist from '../snapassist/snapAssist';
 import SelectionTilePreview from '../tilepreview/selectionTilePreview';
 import Settings, { ActivationKey } from '@/settings';
@@ -17,10 +16,7 @@ import TileUtils from '../layout/TileUtils';
 import GlobalState from '@/globalState';
 import { Monitor } from 'resource:///org/gnome/shell/ui/layout.js';
 import ExtendedWindow from "./extendedWindow";
-import { ResizingManager } from "./resizeManager";
-import SettingsOverride from "@settingsOverride";
-
-const EDGE_TILING_OFFSET = 15;
+import EdgeTilingManager from "./edgeTilingManager";
 
 export class TilingManager {
     private readonly _monitor: Monitor;
@@ -28,6 +24,7 @@ export class TilingManager {
     private _selectedTilesPreview: SelectionTilePreview;
     private _snapAssist: SnapAssist;
     private _tilingLayout: TilingLayout;
+    private _edgeTilingManager: EdgeTilingManager;
 
     private _workArea: Mtk.Rectangle;
     private _innerGaps: Clutter.Margin;
@@ -40,7 +37,6 @@ export class TilingManager {
     private _wasSpanMultipleTilesActivated: boolean;
     private _wasTilingSystemActivated: boolean;
     private _isSnapAssisting: boolean;
-    private _activeEdgeTile: Mtk.Rectangle | null;
 
     private _movingWindowTimerId: number | null = null;
 
@@ -56,7 +52,6 @@ export class TilingManager {
         this._wasSpanMultipleTilesActivated = false;
         this._wasTilingSystemActivated = false;
         this._isSnapAssisting = false;
-        this._activeEdgeTile = null;
         this._enableScaling = enableScaling;
         this._monitor = monitor;
         this._signals = new SignalHandling();
@@ -71,6 +66,7 @@ export class TilingManager {
         // get the monitor's workarea
         this._workArea = Main.layoutManager.getWorkAreaForMonitor(this._monitor.index);
         this._debug(`Work area for monitor ${this._monitor.index}: ${this._workArea.x} ${this._workArea.y} ${this._workArea.width}x${this._workArea.height}`);
+        this._edgeTilingManager = new EdgeTilingManager(this._workArea);
 
         const monitorScalingFactor = this._enableScaling ? getScalingFactor(monitor.index):undefined;
         // build the tiling layout
@@ -110,19 +106,14 @@ export class TilingManager {
 
         this._signals.connect(global.display, 'grab-op-begin', (_display: Meta.Display, window: Meta.Window, grabOp: Meta.GrabOp) => {
             const moving = (grabOp & ~1024) === 1;
-            if (!moving) {
-                //this._resizingManager.onWindowResizingBegin(window, grabOp);
-                return;
-            }
+            if (!moving) return;
             
             this._onWindowGrabBegin(window, grabOp);
         });
 
         this._signals.connect(global.display, 'grab-op-end', (_display: Meta.Display, window: Meta.Window, grabOp: Meta.GrabOp) => {
-            if (!this._isGrabbingWindow) {
-                //this._resizingManager.onWindowResizingEnd(window);
-                return;
-            }
+            if (!this._isGrabbingWindow) return;
+            
             this._onWindowGrabEnd(window);
         });
 
@@ -181,7 +172,7 @@ export class TilingManager {
         this._signals.disconnect();
         this._isGrabbingWindow = false;
         this._isSnapAssisting = false;
-        this._activeEdgeTile = null;
+        this._edgeTilingManager.abortEdgeTiling();
         this._tilingLayout.destroy();
         this._snapAssist.destroy();
         this._selectedTilesPreview.destroy();
@@ -192,11 +183,12 @@ export class TilingManager {
 
         this._workArea = newWorkArea;
         this._debug(`new work area for monitor ${this._monitor.index}: ${newWorkArea.x} ${newWorkArea.y} ${newWorkArea.width}x${newWorkArea.height}`);
-
+        
         // notify the tiling layout that the workarea changed and trigger a new relayout
         // so we will have the layout already computed to be shown quickly when needed
         this._tilingLayout.relayout({ containerRect: this._workArea });
         this._snapAssist.workArea = this._workArea;
+        this._edgeTilingManager.workarea = this._workArea;
     }
 
     private _onWindowGrabBegin(window: Meta.Window, grabOp: number) {
@@ -256,7 +248,7 @@ export class TilingManager {
             this._selectedTilesPreview.close(true);
             this._snapAssist.close(true);
             this._isSnapAssisting = false;
-            this._activeEdgeTile = null;
+            this._edgeTilingManager.abortEdgeTiling();
             
             return GLib.SOURCE_CONTINUE;
         }
@@ -338,14 +330,16 @@ export class TilingManager {
                 this._tilingLayout.close();
                 this._selectedTilesPreview.close(true);
             }
-
-            if (!this._isSnapAssisting && this._isEdgeTiling(global.get_pointer()[0], global.get_pointer()[1])) {
-                this._onEdgeTiling(window);
+            
+            if (Settings.get_active_screen_edges() && !this._isSnapAssisting 
+                && this._edgeTilingManager.canActivateEdgeTiling(global.get_pointer()[0], global.get_pointer()[1])) {
+                const { changed, rect } = this._edgeTilingManager.startEdgeTiling(x, y);
+                if (changed) this._showEdgeTiling(window, rect, x, y);
                 this._snapAssist.close(true);
             } else {
-                if (this._activeEdgeTile) {
+                if (this._edgeTilingManager.isPerformingEdgeTiling()) {
                     this._selectedTilesPreview.close(true);
-                    this._activeEdgeTile = null;
+                    this._edgeTilingManager.abortEdgeTiling();
                 }
 
                 if (Settings.get_snap_assist_enabled()) {
@@ -362,9 +356,9 @@ export class TilingManager {
             this._tilingLayout.openAbove(window);
             this._snapAssist.close(true);
             // close selection tile if we were performing edge-tiling
-            if (this._activeEdgeTile) {
+            if (this._edgeTilingManager.isPerformingEdgeTiling()) {
                 this._selectedTilesPreview.close(true);
-                this._activeEdgeTile = null;
+                this._edgeTilingManager.abortEdgeTiling();
             }
         }
         // if it was snap assisting then close the selection tile preview. We may reopen it if that's the case
@@ -422,14 +416,19 @@ export class TilingManager {
             global.get_pointer()[2], 
             Settings.get_tiling_system_activation_key()
         );
-        if (!isTilingSystemActivated && !this._isSnapAssisting && !this._activeEdgeTile) {
-                return;
+        if (!isTilingSystemActivated && !this._isSnapAssisting 
+            && !this._edgeTilingManager.isPerformingEdgeTiling()) {
+            return;
         }
-        
         // disable snap assistance
         this._isSnapAssisting = false;
+        
+        if (this._edgeTilingManager.isPerformingEdgeTiling()
+            && this._edgeTilingManager.needMaximize() && window.can_maximize()) {
+                window.maximize(Meta.MaximizeFlags.BOTH);
+        }
         // disable edge-tiling
-        this._activeEdgeTile = null;
+        this._edgeTilingManager.abortEdgeTiling();
 
         // abort if the pointer is moving on another monitor: the user moved
         // the window to another monitor not handled by this tiling manager
@@ -442,7 +441,7 @@ export class TilingManager {
         
         (window as ExtendedWindow).originalSize = window.get_frame_rect().copy();
         (window as ExtendedWindow).isTiled = true;
-        this._easeWindowRect(window, selectionRect);
+        if (!window.get_maximized()) this._easeWindowRect(window, selectionRect);
     }
 
     private _easeWindowRect(window: Meta.Window, destRect: Mtk.Rectangle, user_op: boolean = false, force: boolean = false) {
@@ -511,140 +510,9 @@ export class TilingManager {
             && y >= this._monitor.y && y <= this._monitor.y + this._monitor.height;
     }
 
-    private _isEdgeTiling(x: number, y: number) {
-        return x <= this._workArea.x + EDGE_TILING_OFFSET 
-            || y <= this._workArea.y + EDGE_TILING_OFFSET
-            || x >= this._workArea.x + this._workArea.width - EDGE_TILING_OFFSET
-            || y >= this._workArea.y + this._workArea.height - EDGE_TILING_OFFSET;
-    }
-
-    private _onEdgeTiling(window: Meta.Window) {
-        const [x, y] = global.get_pointer();
-
-        const previewRect = buildRectangle();
-        const quarterPercentage = 0.5;
-        const activationPercentage = 0.4;
-
-        if (this._activeEdgeTile && isPointInsideRect({x, y}, this._activeEdgeTile)) {
-            return;
-        }
-
-        if (!this._activeEdgeTile) this._activeEdgeTile = buildRectangle();
-
-        const width = this._workArea.width * activationPercentage;
-        const height = this._workArea.height * activationPercentage;
-
-        const topLeft = buildRectangle({
-            x: this._workArea.x,
-            y: this._workArea.y,
-            width,
-            height
-        });
-        const topRight = buildRectangle({
-            x: this._workArea.x + this._workArea.width - topLeft.width,
-            y: topLeft.y,
-            width,
-            height
-        });
-        const bottomLeft = buildRectangle({
-            x: this._workArea.x,
-            y: this._workArea.y + this._workArea.height - height,
-            width,
-            height
-        });
-        const bottomRight = buildRectangle({
-            x: topRight.x,
-            y: bottomLeft.y,
-            width,
-            height
-        });
-
-        let isRightSide = false;
-        let isCenterSide = false;
-
-        previewRect.width = this._workArea.width * quarterPercentage;
-        previewRect.height = this._workArea.height * quarterPercentage;
-        previewRect.y = this._workArea.y;
-        // left side
-        if (x <= this._workArea.x + (this._workArea.width / 2)) {
-            previewRect.x = this._workArea.x;
-            // top-left corner
-            if (isPointInsideRect({x, y}, topLeft)) {
-                this._activeEdgeTile = topLeft;
-            // bottom-left corner
-            } else if (isPointInsideRect({x, y}, bottomLeft)) {
-                previewRect.y = this._workArea.y + this._workArea.height - previewRect.height;
-                this._activeEdgeTile = bottomLeft;
-            // top-center (full size)
-            } else if (y <= topRight.y + topRight.height) {
-                isCenterSide = true;
-            // center-left (full edge tile)
-            } else if (y <= bottomLeft.y) {
-                previewRect.width = this._workArea.width * quarterPercentage;
-                previewRect.height = this._workArea.height;
-
-                this._activeEdgeTile.x = topLeft.x;
-                this._activeEdgeTile.y = topLeft.y + topLeft.height;
-                this._activeEdgeTile.height = bottomLeft.y - this._activeEdgeTile.y;
-                this._activeEdgeTile.width = topLeft.width;
-            // bottom-center
-            } else {
-                return;
-            }
-        // right side
-        } else {
-            isRightSide = true;
-            previewRect.x = this._workArea.x + this._workArea.width - previewRect.width;
-            // top-right corner
-            if (isPointInsideRect({x, y}, topRight)) {
-                this._activeEdgeTile = topRight;
-            // bottom-right corner
-            } else if (isPointInsideRect({x, y}, bottomRight)) {
-                previewRect.y = this._workArea.y + this._workArea.height - previewRect.height;
-                this._activeEdgeTile = bottomRight;
-            // top-center (full size)
-            } else if (y <= topRight.y + topRight.height) {
-                isCenterSide = true;
-            // center-right (full edge tile)
-            } else if (y <= bottomRight.y) {
-                previewRect.width = this._workArea.width * quarterPercentage;
-                previewRect.height = this._workArea.height;
-
-                this._activeEdgeTile.x = topRight.x;
-                this._activeEdgeTile.y = topRight.y + topRight.height;
-                this._activeEdgeTile.height = bottomRight.y - this._activeEdgeTile.y;
-                this._activeEdgeTile.width = topRight.width;
-            // bottom-center
-            } else {
-                return;
-            }
-        }
-
-        if (isCenterSide) {
-            previewRect.width = this._workArea.width;
-            previewRect.height = this._workArea.height;
-            previewRect.x = this._workArea.x;
-
-            this._activeEdgeTile.x = topLeft.x + topLeft.width;
-            this._activeEdgeTile.y = topRight.y;
-            this._activeEdgeTile.height = topRight.height;
-            this._activeEdgeTile.width = topRight.x - this._activeEdgeTile.x;
-        }
-
-        /*// uncomment to show active tile debugging
-        global.windowGroup.get_children().filter(c => c.get_name() === "debug")[0]?.destroy();
-        const debug = new St.Widget({
-            x: this._activeEdgeTile.x,
-            y: this._activeEdgeTile.y,
-            height: this._activeEdgeTile.height,
-            width: this._activeEdgeTile.width,
-            style: "border: 2px solid red",
-            name: "debug"
-        });
-        global.windowGroup.add_child(debug);*/
-
+    private _showEdgeTiling(window: Meta.Window, edgeTile: Mtk.Rectangle, pointerX: number, pointerY: number) {
         this._selectedTilesPreview.gaps = buildTileGaps(
-            previewRect, 
+            edgeTile, 
             this._tilingLayout.innerGaps, 
             this._tilingLayout.outerGaps, 
             this._workArea,
@@ -652,23 +520,22 @@ export class TilingManager {
         );
 
         if (!this._selectedTilesPreview.showing) {
-            const startingWidth = previewRect.width * 0.2;
-            const startingHeight = previewRect.height * 0.2;
-            this._selectedTilesPreview.open(
-                false, 
-                buildRectangle({ 
-                    x: isRightSide ? (previewRect.x + previewRect.width - startingWidth):previewRect.x, 
-                    y: y - (startingHeight / 2),
-                    width: startingWidth,
-                    height: startingHeight
-                })
-            );
+            const { left, right, top, bottom } = this._selectedTilesPreview.gaps;
+            const initialRect = buildRectangle({ 
+                x: pointerX, 
+                y: pointerY,
+                width: left + right + 8, // width without gaps will be 8
+                height: top + bottom + 8 // height without gaps will be 8
+            });
+            initialRect.x -= initialRect.width / 2;
+            initialRect.y -= initialRect.height / 2;
+            this._selectedTilesPreview.open(false, initialRect);
         }
 
         this._selectedTilesPreview.openAbove(
             window,
             true,
-            previewRect,
+            edgeTile,
         );
     }
 }

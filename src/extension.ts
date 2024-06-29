@@ -88,6 +88,15 @@ export default class TilingShellExtension extends Extension {
     if (this._keybindings) this._keybindings.destroy();
     this._keybindings = new KeyBindings(this.getSettings());
 
+    // disable native edge tiling
+    if (Settings.get_active_screen_edges()) {
+      SettingsOverride.get().override(
+        new Gio.Settings({ schema_id: 'org.gnome.mutter' }), 
+        'edge-tiling', 
+        new GLib.Variant('b', false)
+      );
+    }
+
     //@ts-ignore
     if (Main.layoutManager._startingUp) {
       this._signals.connect(Main.layoutManager, 'startup-complete', () => {
@@ -107,13 +116,6 @@ export default class TilingShellExtension extends Extension {
     if (this._dbus) this._dbus.disable();
     this._dbus = new DBus();
     this._dbus.enable(this);
-
-    // disable native edge tiling
-    SettingsOverride.get().override(
-      new Gio.Settings({ schema_id: 'org.gnome.mutter' }), 
-      'edge-tiling', 
-      new GLib.Variant('b', false)
-    );
     
     debug('extension is enabled');
   }
@@ -168,6 +170,17 @@ export default class TilingShellExtension extends Extension {
     if (this._keybindings) {
       this._signals.connect(this._keybindings, 'move-window', this._onKeyboardMoveWin.bind(this));
     }
+
+    this._signals.connect(Settings, Settings.SETTING_ACTIVE_SCREEN_EDGES, () => {
+      // disable native edge tiling
+      const nativeIsActive = !Settings.get_active_screen_edges();
+      
+      SettingsOverride.get().override(
+        new Gio.Settings({ schema_id: 'org.gnome.mutter' }), 
+        'edge-tiling', 
+        new GLib.Variant('b', nativeIsActive)
+      );
+    });
   }
 
   private _onKeyboardMoveWin(kb: KeyBindings, display: Meta.Display, direction: Meta.Direction) {
