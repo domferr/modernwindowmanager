@@ -156,7 +156,7 @@ export default class TilingShellExtensionPreferences extends ExtensionPreference
 
         const topEdgeMaximize = this._buildSwitchRow(
             Settings.SETTING_TOP_EDGE_MAXIMIZE,
-            "Drag agains top edge to maximize window",
+            "Drag against top edge to maximize window",
             "Drag windows against the top edge to maximize them"
         );
         Settings.bind(Settings.SETTING_ACTIVE_SCREEN_EDGES, topEdgeMaximize, 'sensitive');
